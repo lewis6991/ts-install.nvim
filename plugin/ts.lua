@@ -11,7 +11,7 @@ local function complete_available_parsers(arglead)
     function(v)
       return v:find(arglead) ~= nil
     end,
-    require('nvim-treesitter.config').get_available()
+    require('ts.parsers').get_available()
   )
 end
 
@@ -21,13 +21,13 @@ local function complete_installed_parsers(arglead)
     function(v)
       return v:find(arglead) ~= nil
     end,
-    require('nvim-treesitter.config').installed_parsers()
+    require('ts.parsers').installed()
   )
 end
 
 -- create user commands
 api.nvim_create_user_command('TSInstall', function(args)
-  require('nvim-treesitter.install').install(args.fargs, { force = args.bang })
+  require('ts.install').install(args.fargs, { force = args.bang })
 end, {
   nargs = '+',
   bang = true,
@@ -37,7 +37,7 @@ end, {
 })
 
 api.nvim_create_user_command('TSInstallFromGrammar', function(args)
-  require('nvim-treesitter.install').install(args.fargs, {
+  require('ts.install').install(args.fargs, {
     generate = true,
     force = args.bang,
   })
@@ -50,7 +50,7 @@ end, {
 })
 
 api.nvim_create_user_command('TSUpdate', function(args)
-  require('nvim-treesitter.install').update(args.fargs)
+  require('ts.install').update(args.fargs)
 end, {
   nargs = '*',
   bar = true,
@@ -59,7 +59,7 @@ end, {
 })
 
 api.nvim_create_user_command('TSUninstall', function(args)
-  require('nvim-treesitter.install').uninstall(args.fargs)
+  require('ts.install').uninstall(args.fargs)
 end, {
   nargs = '+',
   bar = true,
@@ -68,7 +68,7 @@ end, {
 })
 
 api.nvim_create_user_command('TSLog', function()
-  require('nvim-treesitter.log').show()
+  require('ts.log').show()
 end, {
   desc = 'View log messages',
 })

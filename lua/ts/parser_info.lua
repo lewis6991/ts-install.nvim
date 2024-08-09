@@ -1,4 +1,4 @@
---- @type nvim-ts.parsers
+--- @type table<string,ts.ParserInfo>
 return {
   ada = {
     install_info = {
@@ -651,8 +651,7 @@ return {
     },
     requires = { 'html_tags' },
   },
-  html_tags = {
-  },
+  html_tags = {},
   htmldjango = {
     install_info = {
       revision = 'ea71012d3fe14dd0b69f36be4f96bdfe9155ebae',
@@ -760,8 +759,7 @@ return {
       url = 'https://github.com/sourcegraph/tree-sitter-jsonnet',
     },
   },
-  jsx = {
-  },
+  jsx = {},
   julia = {
     install_info = {
       revision = 'f1baa5f8e271109d01cc8ff7473c11df2d8a9aee',

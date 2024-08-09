@@ -120,7 +120,7 @@ function M.installed()
 end
 
 --- @param lang string
---- @return InstallInfo?
+--- @return ts.InstallInfo?
 function M.install_info(lang)
   local parser_info = require('ts.parser_info')[lang]
 

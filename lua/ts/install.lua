@@ -67,7 +67,7 @@ end
 ---
 
 --- @param logger ts.Logger
---- @param repo InstallInfo
+--- @param repo ts.InstallInfo
 --- @param compile_location string
 --- @return string? err
 local function do_generate(logger, repo, compile_location)
@@ -92,7 +92,7 @@ local function do_generate(logger, repo, compile_location)
 end
 
 --- @param logger ts.Logger
---- @param repo InstallInfo
+--- @param repo ts.InstallInfo
 --- @param project_name string
 --- @param cache_dir string
 --- @param revision string
@@ -214,7 +214,7 @@ local function do_install(logger, compile_location, target_location)
 end
 
 --- @param lang string
---- @param info InstallInfo
+--- @param info ts.InstallInfo
 --- @param logger ts.Logger
 --- @param generate? boolean
 local function install_parser(lang, info, logger, generate)
