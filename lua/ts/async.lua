@@ -40,10 +40,10 @@ end
 
 --- Creates an async function with a callback style function.
 --- @generic F: function
---- @param func F
 --- @param argc integer
+--- @param func F
 --- @return F
-function M.wrap(func, argc)
+function M.wrap(argc, func)
   vim.validate({
     func = { func, 'function' },
     argc = { argc, 'number' },
@@ -59,11 +59,10 @@ end
 ---called from a non-async context. Inherently this cannot return anything
 ---since it is non-blocking
 --- @generic F: function
+--- @param nargs integer
 --- @param func async F
---- @param nargs? integer
 --- @return F
-function M.sync(func, nargs)
-  nargs = nargs or 0
+function M.sync(nargs, func)
   return function(...)
     local callback = select(nargs + 1, ...)
     execute(func, callback, unpack({ ... }, 1, nargs))
@@ -107,6 +106,6 @@ end
 ---An async function that when called will yield to the Neovim scheduler to be
 ---able to call the API.
 --- @type fun()
-M.main = M.wrap(vim.schedule, 1)
+M.main = M.wrap(1, vim.schedule)
 
 return M
