@@ -40,41 +40,18 @@ end
 
 local M = {}
 
----
---- PARSER INFO
----
-
----@param lang string
----@return InstallInfo?
-local function get_parser_install_info(lang)
-  local parser_config = require('ts.parser_info')[lang]
-
-  if not parser_config then
-    log.error('Parser not available for language "' .. lang .. '"')
-  end
-
-  return parser_config.install_info
-end
-
 --- @param ... string
 --- @return string
 function M.get_package_path(...)
   return fs.joinpath(fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h:h'), ...)
 end
 
----@param lang string
----@return string?
-local function get_installed_revision(lang)
-  local lang_file = fs.joinpath(parsers.dir('parser-info'), lang .. '.revision')
-  return util.read_file(lang_file)
-end
-
----@param lang string
----@return boolean
+--- @param lang string
+--- @return boolean
 local function needs_update(lang)
-  local info = get_parser_install_info(lang)
+  local info = parsers.install_info(lang)
   if info and info.revision then
-    return info.revision ~= get_installed_revision(lang)
+    return info.revision ~= parsers.installed_revision(lang)
   end
 
   -- No revision. Check the queries link to the same place
@@ -114,13 +91,13 @@ local function do_generate(logger, repo, compile_location)
   end
 end
 
----@param logger ts.Logger
----@param repo InstallInfo
----@param project_name string
----@param cache_dir string
----@param revision string
----@param project_dir string
----@return string? err
+--- @param logger ts.Logger
+--- @param repo InstallInfo
+--- @param project_name string
+--- @param cache_dir string
+--- @param revision string
+--- @param project_dir string
+--- @return string? err
 local function do_download(logger, repo, project_name, cache_dir, revision, project_dir)
   local is_gitlab = repo.url:find('gitlab.com', 1, true)
   local url = repo.url:gsub('.git$', '')
@@ -155,11 +132,14 @@ local function do_download(logger, repo, project_name, cache_dir, revision, proj
   end
 
   logger:debug('Creating temporary directory: ' .. temp_dir)
-  --TODO(clason): use fn.mkdir(temp_dir, 'p') in case stdpath('cache') is not created
-  local err = uv_mkdir(temp_dir, 493)
-  a.main()
-  if err then
-    return logger:error('Could not create %s-tmp: %s', project_name, err)
+
+  do
+    --TODO(clason): use fn.mkdir(temp_dir, 'p') in case stdpath('cache') is not created
+    local err = uv_mkdir(temp_dir, 493)
+    a.main()
+    if err then
+      return logger:error('Could not create %s-tmp: %s', project_name, err)
+    end
   end
 
   logger:info('Extracting ' .. project_name .. '...')
@@ -177,17 +157,20 @@ local function do_download(logger, repo, project_name, cache_dir, revision, proj
     return logger:error('Error during tarball extraction: %s', r.stderr)
   end
 
-  err = uv_unlink(project_dir .. '.tar.gz')
-  if err then
-    return logger:error('Could not remove tarball: %s', err)
+  do
+    local err = uv_unlink(project_dir .. '.tar.gz')
+    a.main()
+    if err then
+      return logger:error('Could not remove tarball: %s', err)
+    end
   end
-  a.main()
 
-  err = uv_rename(fs.joinpath(temp_dir, url:match('[^/]-$') .. '-' .. dir_rev), project_dir)
-  a.main()
-
-  if err then
-    return logger:error('Could not rename temp: %s', err)
+  do
+    local err = uv_rename(fs.joinpath(temp_dir, url:match('[^/]-$') .. '-' .. dir_rev), project_dir)
+    a.main()
+    if err then
+      return logger:error('Could not rename temp: %s', err)
+    end
   end
 
   util.delete(temp_dir)
@@ -230,71 +213,80 @@ local function do_install(logger, compile_location, target_location)
   end
 end
 
+--- @param lang string
+--- @param info InstallInfo
+--- @param logger ts.Logger
+--- @param generate? boolean
+local function install_parser(lang, info, logger, generate)
+  local cache_dir = vim.fs.normalize(fn.stdpath('cache') --[[@as string]])
+  local install_dir = parsers.dir('parser')
+
+  local project_name = 'tree-sitter-' .. lang
+
+  local revision = info.revision
+
+  local compile_location ---@type string
+  if info.path then
+    compile_location = fs.normalize(info.path)
+  else
+    local project_dir = fs.joinpath(cache_dir, project_name)
+    util.delete(project_dir)
+
+    revision = revision or info.branch or 'main'
+
+    local err = do_download(logger, info, project_name, cache_dir, revision, project_dir)
+    if err then
+      return err
+    end
+    compile_location = fs.joinpath(cache_dir, project_name)
+  end
+
+  if info.location then
+    compile_location = fs.joinpath(compile_location, info.location)
+  end
+
+  do -- generate parser from grammar
+    if info.generate or generate then
+      local err = do_generate(logger, info, compile_location)
+      if err then
+        return err
+      end
+    end
+  end
+
+  do -- compile parser
+    local err = do_compile(logger, compile_location)
+    if err then
+      return err
+    end
+  end
+
+  do -- install parser
+    local parser_lib_name = fs.joinpath(compile_location, 'parser.so')
+    local install_location = fs.joinpath(install_dir, lang) .. '.so'
+    local err = do_install(logger, parser_lib_name, install_location)
+    if err then
+      return err
+    end
+
+    local revfile = fs.joinpath(parsers.dir('parser-info') or '', lang .. '.revision')
+    util.write_file(revfile, revision or '')
+  end
+
+  if not info.path then
+    util.delete(fs.joinpath(cache_dir, project_name))
+  end
+end
+
 ---@param lang string
----@param cache_dir string
----@param install_dir string
 ---@param generate? boolean
 ---@return string? err
-local function install_lang0(lang, cache_dir, install_dir, generate)
+local function install_lang(lang, generate)
   local logger = log.new('install/' .. lang)
 
-  local repo = get_parser_install_info(lang)
-  if repo then
-    local project_name = 'tree-sitter-' .. lang
-
-    local revision = repo.revision
-
-    local compile_location ---@type string
-    if repo.path then
-      compile_location = fs.normalize(repo.path)
-    else
-      local project_dir = fs.joinpath(cache_dir, project_name)
-      util.delete(project_dir)
-
-      revision = revision or repo.branch or 'main'
-
-      local err = do_download(logger, repo, project_name, cache_dir, revision, project_dir)
-      if err then
-        return err
-      end
-      compile_location = fs.joinpath(cache_dir, project_name)
-    end
-
-    if repo.location then
-      compile_location = fs.joinpath(compile_location, repo.location)
-    end
-
-    do -- generate parser from grammar
-      if repo.generate or generate then
-        local err = do_generate(logger, repo, compile_location)
-        if err then
-          return err
-        end
-      end
-    end
-
-    do -- compile parser
-      local err = do_compile(logger, compile_location)
-      if err then
-        return err
-      end
-    end
-
-    do -- install parser
-      local parser_lib_name = fs.joinpath(compile_location, 'parser.so')
-      local install_location = fs.joinpath(install_dir, lang) .. '.so'
-      local err = do_install(logger, parser_lib_name, install_location)
-      if err then
-        return err
-      end
-
-      local revfile = fs.joinpath(parsers.dir('parser-info') or '', lang .. '.revision')
-      util.write_file(revfile, revision or '')
-    end
-
-    if not repo.path then
-      util.delete(fs.joinpath(cache_dir, project_name))
-    end
+  local parser_install_info = parsers.install_info(lang)
+  if parser_install_info then
+    install_parser(lang, parser_install_info, logger, generate)
   end
 
   local queries = fs.joinpath(parsers.dir('queries'), lang)
@@ -308,23 +300,21 @@ local function install_lang0(lang, cache_dir, install_dir, generate)
   logger:info('Language installed')
 end
 
---- @alias InstallStatus
+--- @alias ts.install.Status
 --- | 'installing'
 --- | 'installed'
 --- | 'failed'
 --- | 'timeout'
 
-local install_status = {} --- @type table<string,InstallStatus?>
+local install_status = {} --- @type table<string,ts.install.Status?>
 
 local INSTALL_TIMEOUT = 60000
 
----@param lang string
----@param cache_dir string
----@param install_dir string
----@param force? boolean
----@param generate? boolean
----@return InstallStatus status
-local function install_lang(lang, cache_dir, install_dir, force, generate)
+--- @param lang string
+--- @param force? boolean
+--- @param generate? boolean
+--- @return ts.install.Status status
+local function try_install_lang(lang, force, generate)
   if not force and vim.list_contains(parsers.installed(), lang) then
     local yesno = fn.input(lang .. ' parser already available: would you like to reinstall ? y/n: ')
     print('\n ')
@@ -343,7 +333,7 @@ local function install_lang(lang, cache_dir, install_dir, force, generate)
     end
   else
     install_status[lang] = 'installing'
-    local err = install_lang0(lang, cache_dir, install_dir, generate)
+    local err = install_lang(lang, generate)
     install_status[lang] = err and 'failed' or 'installed'
   end
 
@@ -359,26 +349,24 @@ local function reload_parsers()
   vim.api.nvim_exec_autocmds('User', { pattern = 'TSUpdate' })
 end
 
----@class InstallOptions
----@field force? boolean
----@field generate? boolean
+--- @class ts.install.InstallOpts
+--- @field force? boolean
+--- @field generate? boolean
+--- @field skip? table
 
 --- Install a parser
 --- @param languages string[]
---- @param options? InstallOptions
+--- @param options? ts.install.InstallOpts
 --- @param _callback? fun()
 local function install(languages, options, _callback)
   options = options or {}
-
-  local cache_dir = vim.fs.normalize(fn.stdpath('cache') --[[@as string]])
-  local install_dir = parsers.dir('parser')
 
   local tasks = {} --- @type fun()[]
   local done = 0
   for _, lang in ipairs(languages) do
     tasks[#tasks + 1] = a.sync(function()
       a.main()
-      local status = install_lang(lang, cache_dir, install_dir, options.force, options.generate)
+      local status = try_install_lang(lang, options.force, options.generate)
       if status ~= 'failed' then
         done = done + 1
       end
@@ -392,6 +380,8 @@ local function install(languages, options, _callback)
   end
 end
 
+--- @param languages string[]|string
+--- @param options? ts.install.InstallOpts
 M.install = a.sync(function(languages, options, _callback)
   reload_parsers()
   if not languages or #languages == 0 then
@@ -411,7 +401,7 @@ end, 2)
 
 ---@param languages? string[]|string
 ---@param _options? UpdateOptions
----@param _callback function
+---@param _callback? function
 M.update = a.sync(function(languages, _options, _callback)
   reload_parsers()
   if not languages or #languages == 0 then
@@ -461,7 +451,7 @@ end
 
 --- @param languages string[]|string
 --- @param _options? UpdateOptions
---- @param _callback fun()
+--- @param _callback? fun()
 M.uninstall = a.sync(function(languages, _options, _callback)
   languages = parsers.norm_languages(languages or 'all', { missing = true, dependencies = true })
 

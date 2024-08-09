@@ -1,7 +1,7 @@
-if vim.g.loaded_nvim_treesitter then
+if vim.g.loaded_ts_nvim then
   return
 end
-vim.g.loaded_nvim_treesitter = true
+vim.g.loaded_ts_nvim = true
 
 local api = vim.api
 

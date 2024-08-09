@@ -24,13 +24,10 @@ error('Cannot require a meta file')
 --- Parser repo is a local directory; overrides `url`, `revision`, and `branch`
 --- @field path? string
 
---- @class ParserInfo
+--- @class ts.ParserInfo
 ---
 --- Information necessary to build and install the parser (empty for query-only language)
----
 --- @field install_info? InstallInfo
---- List of other languages to install (e.g., if queries inherit from them)
 ---
+--- List of other languages to install (e.g., if queries inherit from them)
 --- @field requires? string[]
-
---- @alias nvim-ts.parsers table<string,ParserInfo>

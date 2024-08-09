@@ -1,3 +1,6 @@
+local log = require('ts.log')
+local util = require('ts.util')
+
 local M = {}
 
 --- Get a list of all available parsers
@@ -114,6 +117,26 @@ function M.installed()
   end
 
   return installed
+end
+
+--- @param lang string
+--- @return InstallInfo?
+function M.install_info(lang)
+  local parser_info = require('ts.parser_info')[lang]
+
+  if not parser_info then
+    log.error('Parser not available for language "' .. lang .. '"')
+    return
+  end
+
+  return parser_info.install_info
+end
+
+--- @param lang string
+--- @return string?
+function M.installed_revision(lang)
+  local lang_file = vim.fs.joinpath(M.dir('parser-info'), lang .. '.revision')
+  return util.read_file(lang_file)
 end
 
 return M
