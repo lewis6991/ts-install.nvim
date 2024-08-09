@@ -30,14 +30,19 @@ local function install_health()
 
     if vim.treesitter.language_version then
       if vim.treesitter.language_version >= NVIM_TREESITTER_MINIMUM_ABI then
-        health.ok(string.format(
-          'Neovim was compiled with tree-sitter runtime ABI version %s (required >=%s).',
-          vim.treesitter.language_version,
-          NVIM_TREESITTER_MINIMUM_ABI
-        ))
+        health.ok(
+          string.format(
+            'Neovim was compiled with tree-sitter runtime ABI version %s (required >=%s).',
+            vim.treesitter.language_version,
+            NVIM_TREESITTER_MINIMUM_ABI
+          )
+        )
       else
         health.error(table.concat({
-          string.format('Neovim was compiled with tree-sitter runtime ABI version %s.\n', vim.tree_sitter.language_version),
+          string.format(
+            'Neovim was compiled with tree-sitter runtime ABI version %s.\n',
+            vim.tree_sitter.language_version
+          ),
           string.format('ts expects at least ABI version %s\n', NVIM_TREESITTER_MINIMUM_ABI),
           'Please make sure that Neovim is linked against a recent tree-sitter library when building',
           ' or raise an issue at your Neovim packager. Parsers must be compatible with runtime ABI.',
@@ -78,7 +83,9 @@ local function install_health()
   end
 
   health.start('OS Info')
-  for k, v in pairs(vim.uv.os_uname() --[[@as table<string,string>]]) do
+  for k, v in
+    pairs(vim.uv.os_uname() --[[@as table<string,string>]])
+  do
     health.info(k .. ': ' .. v)
   end
 

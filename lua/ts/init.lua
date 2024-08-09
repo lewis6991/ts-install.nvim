@@ -36,7 +36,8 @@ function M.setup(user_config)
 
   if #config.ensure_install > 0 then
     local parsers = require('ts.parsers')
-    local to_install = parsers.norm_languages(config.ensure_install, { ignored = true, installed = true })
+    local to_install =
+      parsers.norm_languages(config.ensure_install, { ignored = true, installed = true })
 
     if #to_install > 0 then
       require('ts.install').install(to_install, { force = true })

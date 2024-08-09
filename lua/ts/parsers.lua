@@ -106,7 +106,6 @@ function M.dir(dir_name)
   return dir
 end
 
-
 ---@return string[]
 function M.installed()
   local install_dir = M.dir('queries')
