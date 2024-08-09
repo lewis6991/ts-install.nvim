@@ -7,8 +7,9 @@ local function setup_auto_install()
       local buf = args.buf --- @type integer
       local ft = vim.bo[buf].filetype
       local lang = vim.treesitter.language.get_lang(ft) or ft
-      if #parsers.norm_languages(lang, { installed = true, ignored = true }) > 0 then
-        require('ts-install.install').install(lang, nil, function()
+      local to_install = parsers.norm_languages(lang, { installed = true, ignored = true })
+      if #to_install > 0 then
+        require('ts-install.install').install(to_install, nil, function()
           -- Need to pcall since 'FileType' can be triggered multiple times
           -- per buffer
           pcall(vim.treesitter.start, buf, lang)

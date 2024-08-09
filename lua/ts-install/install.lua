@@ -71,7 +71,7 @@ end
 local function needs_update(lang)
   local info = parsers.install_info(lang)
   if info and info.revision then
-    return info.revision ~= parsers.installed_revision(lang)
+    return info.revision ~= util.read_file(parsers.revision_file(lang))
   end
 
   -- No revision. Check the queries link to the same place
@@ -294,7 +294,7 @@ local function install_parser(lang, info, logger, generate)
       return err
     end
 
-    parsers.update_installed_revision(lang, revision)
+    util.write_file(parsers.revision_file(lang), revision or '')
   end
 
   if not info.path then
@@ -449,16 +449,18 @@ end)
 --- @async
 --- @param logger ts_install.Logger
 --- @param lang string
---- @param parser string
---- @param queries string
 --- @return string? err
-local function uninstall_lang(logger, lang, parser, queries)
+local function uninstall_lang(logger, lang)
   logger:debug('Uninstalling %s', lang)
   install_status[lang] = nil
 
   local had_err = false
-  for _, d in ipairs({ parser, queries }) do
-    if vim.fn.filereadable(d) == 1 then
+  for _, d in ipairs({
+    fs.joinpath(parsers.dir('parser'), lang..'.so'),
+    parsers.revision_file(lang),
+    fs.joinpath(parsers.dir('queries'), lang),
+  }) do
+    if vim.uv.fs_stat(d) then
       logger:debug('Unlinking %s', d)
       local err = uv_unlink(d)
       async.main()
@@ -478,8 +480,6 @@ end
 M.uninstall = async.create(2, function(languages, _options, _callback)
   languages = parsers.norm_languages(languages or 'all', { missing = true, dependencies = true })
 
-  local parser_dir = parsers.dir('parser')
-  local query_dir = parsers.dir('queries')
   local installed = parsers.installed()
 
   local tasks = {} --- @type fun()[]
@@ -489,10 +489,8 @@ M.uninstall = async.create(2, function(languages, _options, _callback)
     if not vim.list_contains(installed, lang) then
       log.warn('Parser for ' .. lang .. ' is is not managed by ts')
     else
-      local parser = fs.joinpath(parser_dir, lang) .. '.so'
-      local queries = fs.joinpath(query_dir, lang)
       tasks[#tasks + 1] = async.create(0, function()
-        local err = uninstall_lang(logger, lang, parser, queries)
+        local err = uninstall_lang(logger, lang)
         if not err then
           done = done + 1
         end

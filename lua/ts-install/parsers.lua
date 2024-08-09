@@ -127,7 +127,7 @@ end
 
 -- Returns the install path for parsers, parser info, and queries.
 -- If the specified directory does not exist, it is created.
----@param dir_name string
+---@param dir_name string?
 ---@return string
 function M.dir(dir_name)
   local config = require('ts-install.config').config
@@ -169,21 +169,8 @@ end
 
 --- @param lang string
 --- @return string
-local function revfile(lang)
+function M.revision_file(lang)
   return vim.fs.joinpath(M.dir('parser-info'), lang .. '.revision.txt')
-end
-
---- @param lang string
---- @return string?
-function M.installed_revision(lang)
-  return util.read_file(revfile(lang))
-end
-
---- @param lang string
---- @param revision string
---- @return string?
-function M.update_installed_revision(lang, revision)
-  util.write_file(revfile(lang), revision or '')
 end
 
 return M
