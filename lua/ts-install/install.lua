@@ -129,7 +129,7 @@ local function do_download(logger, repo, project_name, cache_dir, revision, proj
 
   util.delete(temp_dir)
 
-  logger:info('Downloading %s...',  project_name)
+  logger:info('Downloading %s...', project_name)
   local target = is_gitlab
       and string.format('%s/-/archive/%s/%s-%s.tar.gz', url, revision, project_name, revision)
     or string.format('%s/archive/%s.tar.gz', url, revision)
@@ -457,7 +457,7 @@ local function uninstall_lang(logger, lang, parser, queries)
   install_status[lang] = nil
 
   local had_err = false
-  for _, d in ipairs { parser, queries } do
+  for _, d in ipairs({ parser, queries }) do
     if vim.fn.filereadable(d) == 1 then
       logger:debug('Unlinking %s', d)
       local err = uv_unlink(d)

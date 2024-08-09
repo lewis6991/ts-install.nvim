@@ -1,18 +1,13 @@
 local M = {}
 
 local function setup_auto_install()
-  local config = require('ts-install.config').config
   vim.api.nvim_create_autocmd('FileType', {
     callback = function(args)
       local parsers = require('ts-install.parsers')
       local buf = args.buf --- @type integer
       local ft = vim.bo[buf].filetype
       local lang = vim.treesitter.language.get_lang(ft) or ft
-      if
-        parsers.get_parser_info()[lang]
-        and not vim.list_contains(parsers.installed(), lang)
-        and not vim.list_contains(config.ignore_install, lang)
-      then
+      if #parsers.norm_languages(lang, { installed = true, ignored = true }) > 0 then
         require('ts-install.install').install(lang, nil, function()
           -- Need to pcall since 'FileType' can be triggered multiple times
           -- per buffer
@@ -26,8 +21,7 @@ end
 --- @param langs string[]
 local function do_ensure_install(langs)
   local parsers = require('ts-install.parsers')
-  local to_install =
-    parsers.norm_languages(langs, { ignored = true, installed = true })
+  local to_install = parsers.norm_languages(langs, { ignored = true, installed = true })
 
   if #to_install > 0 then
     require('ts-install.install').install(to_install, { force = true })

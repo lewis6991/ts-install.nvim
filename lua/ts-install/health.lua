@@ -42,7 +42,10 @@ local function install_health()
             'Neovim was compiled with tree-sitter runtime ABI version %s.\n',
             vim.tree_sitter.language_version
           ),
-          string.format('ts-install.nvim expects at least ABI version %s\n', NVIM_TREESITTER_MINIMUM_ABI),
+          string.format(
+            'ts-install.nvim expects at least ABI version %s\n',
+            NVIM_TREESITTER_MINIMUM_ABI
+          ),
           'Please make sure that Neovim is linked against a recent tree-sitter library when building',
           ' or raise an issue at your Neovim packager. Parsers must be compatible with runtime ABI.',
         }))
