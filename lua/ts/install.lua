@@ -362,7 +362,6 @@ end
 local function reload_parsers()
   --- @diagnostic disable-next-line:no-unknown
   package.loaded['nvim-treesitter.parsers'] = nil
-  vim.api.nvim_exec_autocmds('User', { pattern = 'TSUpdate' })
 end
 
 --- @class ts.install.InstallOpts
