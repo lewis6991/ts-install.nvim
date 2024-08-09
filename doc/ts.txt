@@ -1,0 +1,74 @@
+*ts.txt*                     Treesitter parser and query installer for Neovim
+
+Authors:
+  Lewis Russell <lewis6991@gmail.com>
+
+                                       Type |gO| to see the table of contents.
+
+==============================================================================
+INTRODUCTION                                           *ts-intro*
+
+ts.nvim functionalities for managing treesitter parsers and compatible
+queries.
+
+==============================================================================
+QUICK START                                       *ts-quickstart*
+
+Install the parser for your language
+
+>vim
+  :TSInstall {language}
+<
+
+To get a list of supported languages
+
+>vim
+  :TSInstall <tab>
+<
+
+To install supported parsers and queries, put this in your `init.lua` file:
+
+>lua
+  require('ts').setup {
+    -- A directory to install the parsers and queries to.
+    -- Defaults to the `stdpath('data')/site` dir.
+    install_dir = "/some/path/to/store/parsers",
+
+    -- A list of parser names, or "core", "stable", "community", "unstable"
+    ensure_install = { "core", "rust" },
+
+    -- Automatically install missing parsers when entering buffer
+    auto_install = false,
+
+    -- List of parsers to ignore installing (for "core" etc.)
+    ignore_install = { "javascript" },
+  }
+
+<
+To check installed parsers and queries, use `:checkhealth ts`.
+
+==============================================================================
+COMMANDS                                            *ts-commands*
+
+								  *:TSInstall*
+:TSInstall {language} ... ~
+
+Install one or more treesitter parsers.
+You can use |:TSInstall| `all` to install all parsers. Use |:TSInstall!| to
+force the reinstallation of already installed parsers.
+
+								   *:TSUpdate*
+:TSUpdate {language} ... ~
+
+Update the installed parser for one more {language} or all installed parsers
+if {language} is omitted. The specified parser is installed if it is not already
+installed.
+
+								*:TSUninstall*
+:TSUninstall {language} ... ~
+
+Deletes the parser for one or more {language}. You can use 'all' for language
+to uninstall all parsers.
+
+
+vim:tw=78:ts=8:expandtab:noet:ft=help:norl:
