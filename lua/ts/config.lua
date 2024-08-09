@@ -6,12 +6,14 @@
 
 local M = {}
 
+local std_data = vim.fn.stdpath('data') --[[@as string]]
+
 ---@type ts.config
 M.config = {
   auto_install = false,
   ensure_install = {},
   ignore_install = { 'unsupported' },
-  install_dir = vim.fs.joinpath(vim.fn.stdpath('data'), 'ts'),
+  install_dir = vim.fs.joinpath(std_data, 'ts'),
 }
 
 --- Apply user configuration.

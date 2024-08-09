@@ -1,7 +1,7 @@
+local parser_info = require('ts.parser_info')
+local config = require('ts.config').config
 local parsers = require('ts.parsers')
-local config = require('ts.config')
 local util = require('ts.util')
-local tsq = vim.treesitter.query
 local health = vim.health
 
 local M = {}
@@ -78,11 +78,11 @@ local function install_health()
   end
 
   health.start('OS Info')
-  for k, v in pairs(vim.uv.os_uname()) do
+  for k, v in pairs(vim.uv.os_uname() --[[@as table<string,string>]]) do
     health.info(k .. ': ' .. v)
   end
 
-  local installdir = config.get_install_dir('')
+  local installdir = config.install_dir
   health.start('Install directory for parsers and queries')
   health.info(installdir)
   if vim.uv.fs_access(installdir, 'w') then
@@ -92,9 +92,7 @@ local function install_health()
   end
   if
     vim.iter(vim.api.nvim_list_runtime_paths()):any(function(p)
-      if installdir == vim.fs.normalize(p) .. '/' then
-        return true
-      end
+      return installdir == vim.fs.normalize(p) .. '/'
     end)
   then
     health.ok('is in runtimepath.')
@@ -104,14 +102,13 @@ local function install_health()
 end
 
 local function query_status(lang, query_group)
-  local ok, err = pcall(tsq.get, lang, query_group)
+  local ok, err = pcall(vim.treesitter.query.get, lang, query_group)
   if not ok then
     return 'x', err
   elseif not err then
     return '.'
-  else
-    return '✓'
   end
+  return '✓'
 end
 
 function M.check()
@@ -122,9 +119,9 @@ function M.check()
 
   -- Parser installation checks
   health.start('Installed languages' .. string.rep(' ', 5) .. 'H L F I J')
-  local languages = config.installed_parsers()
+  local languages = parsers.installed()
   for _, lang in pairs(languages) do
-    local parser = parsers[lang]
+    local parser = parser_info[lang]
     local out = lang .. string.rep(' ', 22 - #lang)
     if parser.install_info then
       for _, query_group in pairs(M.bundled_queries) do
@@ -152,11 +149,11 @@ function M.check()
       local lang, type = p[1], p[2]
       local lines = {}
       table.insert(lines, lang .. '(' .. type .. '): ')
-      local files = tsq.get_files(lang, type)
+      local files = vim.treesitter.query.get_files(lang, type)
       if #files > 0 then
         for _, file in ipairs(files) do
           local query = util.read_file(file)
-          local _, file_err = pcall(tsq.parse, lang, query)
+          local _, file_err = pcall(vim.treesitter.query.parse, lang, query)
           if file_err then
             table.insert(lines, file)
           end

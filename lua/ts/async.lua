@@ -1,5 +1,3 @@
-local co = coroutine
-
 local M = {}
 
 ---Executes a future with a callback when it is done
@@ -7,10 +5,10 @@ local M = {}
 --- @param callback function
 --- @param ... unknown
 local function execute(func, callback, ...)
-  local thread = co.create(func)
+  local thread = coroutine.create(func)
 
   local function step(...)
-    local ret = { co.resume(thread, ...) }
+    local ret = { coroutine.resume(thread, ...) }
     --- @type boolean, any
     local stat, nargs_or_err = unpack(ret)
 
@@ -24,7 +22,7 @@ local function execute(func, callback, ...)
       )
     end
 
-    if co.status(thread) == 'dead' then
+    if coroutine.status(thread) == 'dead' then
       if callback then
         callback(unpack(ret, 3, table.maxn(ret)))
       end
@@ -53,7 +51,7 @@ function M.wrap(func, argc)
   --- @param ... unknown
   --- @return unknown
   return function(...)
-    return co.yield(argc, func, ...)
+    return coroutine.yield(argc, func, ...)
   end
 end
 
@@ -77,7 +75,7 @@ end
 --- @param thunks function[]
 --- @return any
 function M.join(n, interrupt_check, thunks)
-  return co.yield(1, function(finish)
+  return coroutine.yield(1, function(finish)
     if #thunks == 0 then
       return finish()
     end

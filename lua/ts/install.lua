@@ -3,9 +3,9 @@ local fs = vim.fs
 local uv = vim.uv
 
 local a = require('ts.async')
-local config = require('ts.config')
 local log = require('ts.log')
 local util = require('ts.util')
+local parsers = require('ts.parsers')
 
 --- @type fun(path: string, new_path: string, flags?: table): string?
 local uv_copyfile = a.wrap(uv.fs_copyfile, 4)
@@ -47,7 +47,7 @@ local M = {}
 ---@param lang string
 ---@return InstallInfo?
 local function get_parser_install_info(lang)
-  local parser_config = require('ts.parsers')[lang]
+  local parser_config = require('ts.parser_info')[lang]
 
   if not parser_config then
     log.error('Parser not available for language "' .. lang .. '"')
@@ -65,7 +65,7 @@ end
 ---@param lang string
 ---@return string?
 local function get_installed_revision(lang)
-  local lang_file = fs.joinpath(config.get_install_dir('parser-info'), lang .. '.revision')
+  local lang_file = fs.joinpath(parsers.dir('parser-info'), lang .. '.revision')
   return util.read_file(lang_file)
 end
 
@@ -79,7 +79,7 @@ local function needs_update(lang)
 
   -- No revision. Check the queries link to the same place
 
-  local queries = fs.joinpath(config.get_install_dir('queries'), lang)
+  local queries = fs.joinpath(parsers.dir('queries'), lang)
   local queries_src = M.get_package_path('runtime', 'queries', lang)
 
   return uv.fs_realpath(queries) ~= uv.fs_realpath(queries_src)
@@ -89,7 +89,7 @@ end
 --- PARSER MANAGEMENT FUNCTIONS
 ---
 
---- @param logger Logger
+--- @param logger ts.Logger
 --- @param repo InstallInfo
 --- @param compile_location string
 --- @return string? err
@@ -114,7 +114,7 @@ local function do_generate(logger, repo, compile_location)
   end
 end
 
----@param logger Logger
+---@param logger ts.Logger
 ---@param repo InstallInfo
 ---@param project_name string
 ---@param cache_dir string
@@ -193,7 +193,7 @@ local function do_download(logger, repo, project_name, cache_dir, revision, proj
   util.delete(temp_dir)
 end
 
----@param logger Logger
+---@param logger ts.Logger
 ---@param compile_location string
 ---@return string? err
 local function do_compile(logger, compile_location)
@@ -210,7 +210,7 @@ local function do_compile(logger, compile_location)
   end
 end
 
----@param logger Logger
+---@param logger ts.Logger
 ---@param compile_location string
 ---@param target_location string
 ---@return string? err
@@ -288,7 +288,7 @@ local function install_lang0(lang, cache_dir, install_dir, generate)
         return err
       end
 
-      local revfile = fs.joinpath(config.get_install_dir('parser-info') or '', lang .. '.revision')
+      local revfile = fs.joinpath(parsers.dir('parser-info') or '', lang .. '.revision')
       util.write_file(revfile, revision or '')
     end
 
@@ -297,7 +297,7 @@ local function install_lang0(lang, cache_dir, install_dir, generate)
     end
   end
 
-  local queries = fs.joinpath(config.get_install_dir('queries'), lang)
+  local queries = fs.joinpath(parsers.dir('queries'), lang)
   local queries_src = M.get_package_path('runtime', 'queries', lang)
   uv_unlink(queries)
   local err = uv_symlink(queries_src, queries, { dir = true, junction = true })
@@ -325,7 +325,7 @@ local INSTALL_TIMEOUT = 60000
 ---@param generate? boolean
 ---@return InstallStatus status
 local function install_lang(lang, cache_dir, install_dir, force, generate)
-  if not force and vim.list_contains(config.installed_parsers(), lang) then
+  if not force and vim.list_contains(parsers.installed(), lang) then
     local yesno = fn.input(lang .. ' parser already available: would you like to reinstall ? y/n: ')
     print('\n ')
     if yesno:sub(1, 1) ~= 'y' then
@@ -354,7 +354,8 @@ end
 
 --- Reload the parser table and user modifications in case of update
 local function reload_parsers()
-  package.loaded['ts.parsers'] = nil
+  --- @diagnostic disable-next-line:no-unknown
+  package.loaded['ts.parser_info'] = nil
   vim.api.nvim_exec_autocmds('User', { pattern = 'TSUpdate' })
 end
 
@@ -369,8 +370,8 @@ end
 local function install(languages, options, _callback)
   options = options or {}
 
-  local cache_dir = vim.fs.normalize(fn.stdpath('cache'))
-  local install_dir = config.get_install_dir('parser')
+  local cache_dir = vim.fs.normalize(fn.stdpath('cache') --[[@as string]])
+  local install_dir = parsers.dir('parser')
 
   local tasks = {} --- @type fun()[]
   local done = 0
@@ -397,7 +398,7 @@ M.install = a.sync(function(languages, options, _callback)
     languages = 'all'
   end
 
-  languages = config.norm_languages(languages, options and options.skip)
+  languages = parsers.norm_languages(languages, options and options.skip)
 
   if languages[1] == 'all' then
     options.force = true
@@ -416,7 +417,7 @@ M.update = a.sync(function(languages, _options, _callback)
   if not languages or #languages == 0 then
     languages = 'all'
   end
-  languages = config.norm_languages(languages, { ignored = true, missing = true })
+  languages = parsers.norm_languages(languages, { ignored = true, missing = true })
   languages = vim.tbl_filter(needs_update, languages) --- @type string[]
 
   if #languages > 0 then
@@ -426,7 +427,7 @@ M.update = a.sync(function(languages, _options, _callback)
   end
 end, 2)
 
---- @param logger Logger
+--- @param logger ts.Logger
 --- @param lang string
 --- @param parser string
 --- @param queries string
@@ -462,11 +463,11 @@ end
 --- @param _options? UpdateOptions
 --- @param _callback fun()
 M.uninstall = a.sync(function(languages, _options, _callback)
-  languages = config.norm_languages(languages or 'all', { missing = true, dependencies = true })
+  languages = parsers.norm_languages(languages or 'all', { missing = true, dependencies = true })
 
-  local parser_dir = config.get_install_dir('parser')
-  local query_dir = config.get_install_dir('queries')
-  local installed = config.installed_parsers()
+  local parser_dir = parsers.dir('parser')
+  local query_dir = parsers.dir('queries')
+  local installed = parsers.installed()
 
   local tasks = {} --- @type fun()[]
   local done = 0
