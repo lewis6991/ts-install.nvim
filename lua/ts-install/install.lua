@@ -156,7 +156,7 @@ local function do_download(logger, repo, project_name, cache_dir, revision, proj
 
   do
     --TODO(clason): use fn.mkdir(temp_dir, 'p') in case stdpath('cache') is not created
-    local err = uv_mkdir(temp_dir, 493)
+    local err = uv_mkdir(temp_dir, tonumber('755', 8))
     async.main()
     if err then
       return logger:error('Could not create %s-tmp: %s', project_name, err)
@@ -292,8 +292,7 @@ local function install_parser(lang, info, logger, generate)
       return err
     end
 
-    local revfile = fs.joinpath(parsers.dir('parser-info') or '', lang .. '.revision')
-    util.write_file(revfile, revision or '')
+    parsers.update_installed_revision(lang, revision)
   end
 
   if not info.path then

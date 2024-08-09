@@ -80,8 +80,10 @@ function M.norm_languages(languages, skip)
     )
   end
 
+  local installed --- @type string[]?
+
   if skip.installed then
-    local installed = M.installed()
+    installed = M.installed()
     languages = vim.tbl_filter(
       --- @param v string
       function(v)
@@ -92,7 +94,7 @@ function M.norm_languages(languages, skip)
   end
 
   if skip.missing then
-    local installed = M.installed()
+    installed = installed or M.installed()
     languages = vim.tbl_filter(
       --- @param v string
       function(v)
@@ -166,10 +168,22 @@ function M.install_info(lang)
 end
 
 --- @param lang string
+--- @return string
+local function revfile(lang)
+  return vim.fs.joinpath(M.dir('parser-info'), lang .. '.revision.txt')
+end
+
+--- @param lang string
 --- @return string?
 function M.installed_revision(lang)
-  local lang_file = vim.fs.joinpath(M.dir('parser-info'), lang .. '.revision')
-  return util.read_file(lang_file)
+  return util.read_file(revfile(lang))
+end
+
+--- @param lang string
+--- @param revision string
+--- @return string?
+function M.update_installed_revision(lang, revision)
+  util.write_file(revfile(lang), revision or '')
 end
 
 return M
