@@ -97,4 +97,5 @@ The scope of nvim-treesitter has grew too large and aims to both support the que
 in addition to the installation and parser management functionality.
 
 The goal of this plugin is to only provide the latter in a more opinionated way.
+Specifically a way to install parsers and their queries from variouse sources (currently only nvim-treesitter).
 
