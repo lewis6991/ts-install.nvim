@@ -76,7 +76,7 @@ local function needs_update(lang)
 
   -- No revision. Check the queries link to the same place
 
-  local queries = fs.joinpath(parsers.dir('queries'), lang)
+  local queries = parsers.queries_dir(lang)
   local queries_src = M.get_package_path('runtime', 'queries', lang)
 
   return uv.fs_realpath(queries) ~= uv.fs_realpath(queries_src)
@@ -244,10 +244,7 @@ end
 --- @return string? err
 local function install_parser(lang, info, logger, generate)
   local cache_dir = vim.fs.normalize(fn.stdpath('cache') --[[@as string]])
-  local install_dir = parsers.dir('parser')
-
   local project_name = 'tree-sitter-' .. lang
-
   local revision = info.revision
 
   local compile_location --- @type string
@@ -288,7 +285,7 @@ local function install_parser(lang, info, logger, generate)
 
   do -- install parser
     local parser_lib_name = fs.joinpath(compile_location, 'parser.so')
-    local install_location = fs.joinpath(install_dir, lang) .. '.so'
+    local install_location = parsers.parser_file(lang)
     local err = do_install(logger, parser_lib_name, install_location)
     if err then
       return err
@@ -317,7 +314,7 @@ local function install_lang(lang, generate)
     end
   end
 
-  local queries = fs.joinpath(parsers.dir('queries'), lang)
+  local queries = parsers.queries_dir(lang)
   local queries_src = M.get_package_path('runtime', 'queries', lang)
   uv_unlink(queries)
   local err = uv_symlink(queries_src, queries, { dir = true, junction = true })
@@ -456,9 +453,9 @@ local function uninstall_lang(logger, lang)
 
   local had_err = false
   for _, d in ipairs({
-    fs.joinpath(parsers.dir('parser'), lang..'.so'),
+    parsers.parser_file(lang),
     parsers.revision_file(lang),
-    fs.joinpath(parsers.dir('queries'), lang),
+    parsers.queries_dir(lang),
   }) do
     if vim.uv.fs_stat(d) then
       logger:debug('Unlinking %s', d)

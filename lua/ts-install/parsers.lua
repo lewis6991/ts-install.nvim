@@ -1,5 +1,4 @@
 local log = require('ts-install.log')
-local util = require('ts-install.util')
 
 --- @class ts_install.InstallInfo
 ---
@@ -171,6 +170,18 @@ end
 --- @return string
 function M.revision_file(lang)
   return vim.fs.joinpath(M.dir('parser-info'), lang .. '.revision.txt')
+end
+
+--- @param lang string
+--- @return string
+function M.parser_file(lang)
+  return vim.fs.joinpath(M.dir('parser'), lang) .. '.so'
+end
+
+--- @param lang string
+--- @return string
+function M.queries_dir(lang)
+  return vim.fs.joinpath(M.dir('queries'), lang)
 end
 
 return M
