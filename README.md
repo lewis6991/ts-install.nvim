@@ -12,9 +12,36 @@ This plugin provides functions for installing, updating, and removing **tree-sit
 
 ## Installation
 
+pckr.nvim:
+```lua
+require('pckr').add({
+  { 'nvim-treesitter/nvim-treesitter',
+    branch = 'main',
+    config_pre = function()
+      vim.g.loaded_nvim_treesitter = 1
+    end
+  },
+
+  { 'lewis6991/ts.nvim',
+    requires = 'nvim-treesitter/nvim-treesitter',
+    run = ':TS update',
+  },
+})
+```
+
+lazy.nvim:
 ```lua
 require('lazy').setup(
-  { 'lewis6991/ts.nvim', build = ':TSUpdate', lazy = false }
+  { 'nvim-treesitter/nvim-treesitter',
+    branch = 'main',
+    init = function()
+      vim.g.loaded_nvim_treesitter = 1
+    end,
+  },
+
+  { 'lewis6991/ts.nvim',
+    build = ':TS update',
+  }
 )
 ```
 
