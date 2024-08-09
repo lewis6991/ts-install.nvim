@@ -450,27 +450,20 @@ local function uninstall_lang(logger, lang, parser, queries)
   logger:debug('Uninstalling %s', lang)
   install_status[lang] = nil
 
-  if vim.fn.filereadable(parser) == 1 then
-    logger:debug('Unlinking %s', parser)
-    local perr = uv_unlink(parser)
-    async.main()
-
-    if perr then
-      return logger:error(perr)
+  local had_err = false
+  for _, d in ipairs { parser, queries } do
+    if vim.fn.filereadable(d) == 1 then
+      logger:debug('Unlinking %s', d)
+      local err = uv_unlink(d)
+      async.main()
+      if err then
+        logger:error(err)
+        had_err = true
+      end
     end
   end
 
-  if vim.fn.isdirectory(queries) == 1 then
-    logger:debug('Unlinking %s', queries)
-    local qerr = uv_unlink(queries)
-    async.main()
-
-    if qerr then
-      return logger:error(qerr)
-    end
-  end
-
-  logger:info('Language uninstalled')
+  logger:info('Language uninstalled%s', had_err and ' (with errors, see ":TS log")' or '')
 end
 
 --- @param languages string[]|string
