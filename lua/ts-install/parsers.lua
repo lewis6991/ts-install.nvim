@@ -77,15 +77,18 @@ function M.norm_languages(languages, skip)
       end,
       languages
     )
+    if #languages == 0 then
+      return languages
+    end
   end
 
   local installed --- @type string[]?
 
   if skip.installed then
-    installed = M.installed()
     languages = vim.tbl_filter(
       --- @param v string
       function(v)
+        installed = installed or M.installed()
         return not vim.list_contains(installed, v)
       end,
       languages
@@ -93,14 +96,18 @@ function M.norm_languages(languages, skip)
   end
 
   if skip.missing then
-    installed = installed or M.installed()
     languages = vim.tbl_filter(
       --- @param v string
       function(v)
+        installed = installed or M.installed()
         return vim.list_contains(installed, v)
       end,
       languages
     )
+  end
+
+  if #languages == 0 then
+    return languages
   end
 
   local parser_info = M.get_parser_info()
