@@ -62,25 +62,12 @@ function M.get_package_path(...)
   return fs.joinpath(nvim_treesitter_dir, ...)
 end
 
-local lockfile --- @type table<string,{revision:string}>
-
---- @param lang string
---- @return string
-local function get_parser_revision(lang)
-  if not lockfile then
-    local lockfile_fn = M.get_package_path('lockfile.json')
-    lockfile = vim.json.decode(util.read_file(lockfile_fn)) --[[@as table<string,{revision:string}>]]
-  end
-  return (lockfile[lang] or {}).revision
-end
-
 --- @param lang string
 --- @return boolean
 local function needs_update(lang)
   local info = parsers.install_info(lang)
-  local rev = get_parser_revision(lang)
-  if info and rev then
-    return rev ~= parsers.installed_revision(lang)
+  if info and info.revision then
+    return info.revision ~= parsers.installed_revision(lang)
   end
 
   -- No revision. Check the queries link to the same place
@@ -252,7 +239,7 @@ local function install_parser(lang, info, logger, generate)
 
   local project_name = 'tree-sitter-' .. lang
 
-  local revision = get_parser_revision(lang)
+  local revision = info.revision
 
   local compile_location ---@type string
   if info.path then

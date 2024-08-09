@@ -3,6 +3,9 @@ local util = require('ts.util')
 
 --- @class ts.InstallInfo
 ---
+--- Revision of parser
+--- @field revision string
+---
 --- URL of parser repo (Github/Gitlab)
 --- @field url string
 ---
