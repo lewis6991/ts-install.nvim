@@ -40,18 +40,47 @@ end
 
 local M = {}
 
+local nvim_treesitter_dir --- @type string
+
 --- @param ... string
 --- @return string
 function M.get_package_path(...)
-  return fs.joinpath(fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':p:h:h:h'), ...)
+  if not nvim_treesitter_dir then
+    local runtime_dirs = vim.api.nvim_get_runtime_file('runtime', true)
+    for _, dir in ipairs(runtime_dirs) do
+      if dir:match('/nvim%-treesitter/') then
+        nvim_treesitter_dir = vim.fs.dirname(dir)
+        break
+      end
+    end
+  end
+
+  if not nvim_treesitter_dir then
+    error('nvim-treesitter is not installed')
+  end
+
+  return fs.joinpath(nvim_treesitter_dir, ...)
+end
+
+local lockfile --- @type table<string,{revision:string}>
+
+--- @param lang string
+--- @return string
+local function get_parser_revision(lang)
+  if not lockfile then
+    local lockfile_fn = M.get_package_path('lockfile.json')
+    lockfile = vim.json.decode(util.read_file(lockfile_fn)) --[[@as table<string,{revision:string}>]]
+  end
+  return (lockfile[lang] or {}).revision
 end
 
 --- @param lang string
 --- @return boolean
 local function needs_update(lang)
   local info = parsers.install_info(lang)
-  if info and info.revision then
-    return info.revision ~= parsers.installed_revision(lang)
+  local rev = get_parser_revision(lang)
+  if info and rev then
+    return rev ~= parsers.installed_revision(lang)
   end
 
   -- No revision. Check the queries link to the same place
@@ -223,7 +252,7 @@ local function install_parser(lang, info, logger, generate)
 
   local project_name = 'tree-sitter-' .. lang
 
-  local revision = info.revision
+  local revision = get_parser_revision(lang)
 
   local compile_location ---@type string
   if info.path then
