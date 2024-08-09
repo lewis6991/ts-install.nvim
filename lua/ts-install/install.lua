@@ -2,10 +2,10 @@ local fn = vim.fn
 local fs = vim.fs
 local uv = vim.uv
 
-local async = require('ts.async')
-local log = require('ts.log')
-local util = require('ts.util')
-local parsers = require('ts.parsers')
+local async = require('ts-install.async')
+local log = require('ts-install.log')
+local util = require('ts-install.util')
+local parsers = require('ts-install.parsers')
 
 --- @type fun(path: string, new_path: string, flags?: table): string?
 local uv_copyfile = async.wrap(4, uv.fs_copyfile)
@@ -85,8 +85,8 @@ end
 --- PARSER MANAGEMENT FUNCTIONS
 ---
 
---- @param logger ts.Logger
---- @param repo ts.InstallInfo
+--- @param logger ts_install.Logger
+--- @param repo ts_install.InstallInfo
 --- @param compile_location string
 --- @return string? err
 local function do_generate(logger, repo, compile_location)
@@ -110,8 +110,8 @@ local function do_generate(logger, repo, compile_location)
   end
 end
 
---- @param logger ts.Logger
---- @param repo ts.InstallInfo
+--- @param logger ts_install.Logger
+--- @param repo ts_install.InstallInfo
 --- @param project_name string
 --- @param cache_dir string
 --- @param revision string
@@ -198,7 +198,7 @@ local function do_download(logger, repo, project_name, cache_dir, revision, proj
   util.delete(temp_dir)
 end
 
---- @param logger ts.Logger
+--- @param logger ts_install.Logger
 --- @param compile_location string
 --- @return string? err
 local function do_compile(logger, compile_location)
@@ -215,7 +215,7 @@ local function do_compile(logger, compile_location)
   end
 end
 
---- @param logger ts.Logger
+--- @param logger ts_install.Logger
 --- @param compile_location string
 --- @param target_location string
 --- @return string? err
@@ -236,8 +236,8 @@ local function do_install(logger, compile_location, target_location)
 end
 
 --- @param lang string
---- @param info ts.InstallInfo
---- @param logger ts.Logger
+--- @param info ts_install.InstallInfo
+--- @param logger ts_install.Logger
 --- @param generate? boolean
 --- @return string? err
 local function install_parser(lang, info, logger, generate)
@@ -326,20 +326,20 @@ local function install_lang(lang, generate)
   logger:info('Language installed')
 end
 
---- @alias ts.install.Status
+--- @alias ts_install.install.Status
 --- | 'installing'
 --- | 'installed'
 --- | 'failed'
 --- | 'timeout'
 
-local install_status = {} --- @type table<string,ts.install.Status?>
+local install_status = {} --- @type table<string,ts_install.install.Status?>
 
 local INSTALL_TIMEOUT = 60000
 
 --- @param lang string
 --- @param force? boolean
 --- @param generate? boolean
---- @return ts.install.Status status
+--- @return ts_install.install.Status status
 local function try_install_lang(lang, force, generate)
   if not force and vim.list_contains(parsers.installed(), lang) then
     local yesno = fn.input(lang .. ' parser already available: would you like to reinstall ? y/n: ')
@@ -374,14 +374,14 @@ local function reload_parsers()
   package.loaded['nvim-treesitter.parsers'] = nil
 end
 
---- @class ts.install.InstallOpts
+--- @class ts_install.install.InstallOpts
 --- @field force? boolean
 --- @field generate? boolean
 --- @field skip? table
 
 --- Install a parser
 --- @param languages string[]
---- @param options? ts.install.InstallOpts
+--- @param options? ts_install.install.InstallOpts
 --- @param _callback? fun()
 local function install(languages, options, _callback)
   options = options or {}
@@ -406,7 +406,7 @@ local function install(languages, options, _callback)
 end
 
 --- @param languages string[]|string
---- @param options? ts.install.InstallOpts
+--- @param options? ts_install.install.InstallOpts
 M.install = async.sync(2, function(languages, options, _callback)
   reload_parsers()
   if not languages or #languages == 0 then
@@ -422,10 +422,10 @@ M.install = async.sync(2, function(languages, options, _callback)
   install(languages, options)
 end)
 
---- @class ts.install.UpdateOpts
+--- @class ts_install.install.UpdateOpts
 
 --- @param languages? string[]|string
---- @param _options? ts.install.UpdateOpts
+--- @param _options? ts_install.install.UpdateOpts
 --- @param _callback? function
 M.update = async.sync(2, function(languages, _options, _callback)
   reload_parsers()
@@ -442,7 +442,7 @@ M.update = async.sync(2, function(languages, _options, _callback)
   end
 end)
 
---- @param logger ts.Logger
+--- @param logger ts_install.Logger
 --- @param lang string
 --- @param parser string
 --- @param queries string
@@ -475,7 +475,7 @@ local function uninstall_lang(logger, lang, parser, queries)
 end
 
 --- @param languages string[]|string
---- @param _options? ts.install.UpdateOpts
+--- @param _options? ts_install.install.UpdateOpts
 --- @param _callback? fun()
 M.uninstall = async.sync(2, function(languages, _options, _callback)
   languages = parsers.norm_languages(languages or 'all', { missing = true, dependencies = true })

@@ -1,4 +1,4 @@
---- @class ts.config
+--- @class ts_install.config
 --- @field auto_install boolean
 --- @field ensure_install string[]
 --- @field ignore_install string[]
@@ -8,16 +8,16 @@ local M = {}
 
 local std_data = vim.fn.stdpath('data') --[[@as string]]
 
----@type ts.config
+---@type ts_install.config
 M.config = {
   auto_install = false,
   ensure_install = {},
   ignore_install = { 'unsupported' },
-  install_dir = vim.fs.joinpath(std_data, 'ts'),
+  install_dir = vim.fs.joinpath(std_data, 'ts-install'),
 }
 
 --- Apply user configuration.
---- @param user_config ts.config? user configuration table
+--- @param user_config ts_install.config? user configuration table
 function M.apply(user_config)
   if not user_config then
     return

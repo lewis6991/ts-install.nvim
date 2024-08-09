@@ -14,10 +14,10 @@ local sev_to_hl = {
 --- @param ctx string?
 --- @return string
 local function mkpfx(ctx)
-  return ctx and string.format('[ts/%s]', ctx) or '[ts]'
+  return ctx and string.format('[ts-install/%s]', ctx) or '[ts-install]'
 end
 
---- @class ts.log
+--- @class ts_install.log
 --- @field trace fun(fmt: string, ...: any)
 --- @field debug fun(fmt: string, ...: any)
 --- @field info fun(fmt: string, ...: any)
@@ -25,14 +25,14 @@ end
 --- @field error fun(fmt: string, ...: any)
 local M = {}
 
---- @class ts.Logger
+--- @class ts_install.Logger
 --- @field ctx? string
 local Logger = {}
 
 M.Logger = Logger
 
 --- @param ctx? string
---- @return ts.Logger
+--- @return ts_install.Logger
 function M.new(ctx)
   return setmetatable({ ctx = ctx }, { __index = Logger })
 end

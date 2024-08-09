@@ -1,7 +1,7 @@
-local log = require('ts.log')
-local util = require('ts.util')
+local log = require('ts-install.log')
+local util = require('ts-install.util')
 
---- @class ts.InstallInfo
+--- @class ts_install.InstallInfo
 ---
 --- Revision of parser
 --- @field revision string
@@ -24,10 +24,10 @@ local util = require('ts.util')
 --- Parser repo is a local directory; overrides `url`, `revision`, and `branch`
 --- @field path? string
 
---- @class ts.ParserInfo
+--- @class ts_install.ParserInfo
 ---
 --- Information necessary to build and install the parser (empty for query-only language)
---- @field install_info? ts.InstallInfo
+--- @field install_info? ts_install.InstallInfo
 ---
 --- List of other languages to install (e.g., if queries inherit from them)
 --- @field requires? string[]
@@ -35,7 +35,7 @@ local util = require('ts.util')
 local M = {}
 
 function M.get_parser_info()
-  --- @type table<string,ts.ParserInfo>
+  --- @type table<string,ts_install.ParserInfo>
   return require('nvim-treesitter.parsers')
 end
 
@@ -69,7 +69,7 @@ function M.norm_languages(languages, skip)
   end
 
   if skip.ignored then
-    local config = require('ts.config').config
+    local config = require('ts-install.config').config
     local ignored = config.ignore_install
     languages = vim.tbl_filter(
       --- @param v string
@@ -128,7 +128,7 @@ end
 ---@param dir_name string
 ---@return string
 function M.dir(dir_name)
-  local config = require('ts.config').config
+  local config = require('ts-install.config').config
   local dir = vim.fs.joinpath(config.install_dir, dir_name)
 
   if not vim.uv.fs_stat(dir) then
@@ -153,7 +153,7 @@ function M.installed()
 end
 
 --- @param lang string
---- @return ts.InstallInfo?
+--- @return ts_install.InstallInfo?
 function M.install_info(lang)
   local parser_info = M.get_parser_info()[lang]
 

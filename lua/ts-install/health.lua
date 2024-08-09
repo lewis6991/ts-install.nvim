@@ -1,6 +1,6 @@
-local config = require('ts.config').config
-local parsers = require('ts.parsers')
-local util = require('ts.util')
+local config = require('ts-install.config').config
+local parsers = require('ts-install.parsers')
+local util = require('ts-install.util')
 local health = vim.health
 
 local M = {}
@@ -24,7 +24,7 @@ local function install_health()
 
   do -- nvim check
     if vim.fn.has('nvim-0.10') ~= 1 then
-      health.error('ts requires the latest Neovim 0.10')
+      health.error('ts-install.nvim requires the latest Neovim 0.10')
     end
 
     if vim.treesitter.language_version then
@@ -42,7 +42,7 @@ local function install_health()
             'Neovim was compiled with tree-sitter runtime ABI version %s.\n',
             vim.tree_sitter.language_version
           ),
-          string.format('ts expects at least ABI version %s\n', NVIM_TREESITTER_MINIMUM_ABI),
+          string.format('ts-install.nvim expects at least ABI version %s\n', NVIM_TREESITTER_MINIMUM_ABI),
           'Please make sure that Neovim is linked against a recent tree-sitter library when building',
           ' or raise an issue at your Neovim packager. Parsers must be compatible with runtime ABI.',
         }))

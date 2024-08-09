@@ -19,11 +19,11 @@ local function subcmd_candidates(line)
   elseif n > 2 then
     local subcmd = words[2]
     if subcmd == 'install' or subcmd == 'install_from_grammar' then
-      local langs = require('ts.parsers').get_available()
+      local langs = require('ts-install.parsers').get_available()
       table.insert(langs, 'all')
       return langs
     elseif subcmd == 'update' or subcmd == 'uninstall' then
-      local langs = require('ts.parsers').installed()
+      local langs = require('ts-install.parsers').installed()
       table.insert(langs, 'all')
       return langs
     end
@@ -44,19 +44,20 @@ end
 api.nvim_create_user_command('TS', function(args)
   local subcmd = args.fargs[1] --- @type string
   local sub_fargs = vim.list_slice(args.fargs, 2)
+  local installer = require('ts-install.install')
   if subcmd == 'install' then
-    require('ts.install').install(sub_fargs, { force = args.bang })
+    installer.install(sub_fargs, { force = args.bang })
   elseif subcmd == 'install_from_grammar' then
-    require('ts.install').install(sub_fargs, {
+    installer.install(sub_fargs, {
       generate = true,
       force = args.bang,
     })
   elseif subcmd == 'update' then
-    require('ts.install').update(sub_fargs)
+    installer.update(sub_fargs)
   elseif subcmd == 'uninstall' then
-    require('ts.install').uninstall(sub_fargs)
+    installer.uninstall(sub_fargs)
   elseif subcmd == 'log' then
-    require('ts.log').show()
+    require('ts-install.log').show()
   end
 end, {
   nargs = '+',

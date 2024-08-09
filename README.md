@@ -20,13 +20,13 @@ require('pckr').add({
     end
   },
 
-  { 'lewis6991/ts.nvim',
+  { 'lewis6991/ts-install.nvim',
     requires = 'nvim-treesitter/nvim-treesitter',
     run = ':TS update',
 
     -- OPTIONAL
     config = function()
-      require('ts').setup({
+      require('ts-install').setup({
         ensure_install = {
           'lua',
           'c',
@@ -49,7 +49,7 @@ require('lazy').setup(
     end,
   },
 
-  { 'lewis6991/ts.nvim',
+  { 'lewis6991/ts-install.nvim',
     build = ':TS update',
 
     -- OPTIONAL
@@ -69,11 +69,11 @@ require('lazy').setup(
 
 ## Setup
 
-`ts.nvim` can be optionally configured by calling `setup()`.
+`ts-install.nvim` can be optionally configured by calling `setup()`.
 The following snippet lists the available options and their default values.
 
 ```lua
-require'ts'.setup {
+require'ts-install'.setup {
   ensure_install = { },
 
   -- List of parsers to ignore installing
@@ -83,11 +83,11 @@ require'ts'.setup {
   auto_install = false,
 
   -- Directory to install parsers and queries to
-  install_dir = vim.fn.stdpath('data') .. '/ts'
+  install_dir = vim.fn.stdpath('data') .. '/ts-install'
 }
 ```
 
-Check [`:h ts-commands`](doc/ts.txt) for a list of all available commands.
+Check [`:h ts-install-commands`](doc/ts-install.txt) for a list of all available commands.
 
 ## FAQ
 

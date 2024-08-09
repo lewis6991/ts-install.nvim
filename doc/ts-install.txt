@@ -1,4 +1,4 @@
-*ts.txt*                     Treesitter parser and query installer for Neovim
+*ts-install.txt*                     Treesitter parser and query installer for Neovim
 
 Authors:
   Lewis Russell <lewis6991@gmail.com>
@@ -6,13 +6,13 @@ Authors:
                                        Type |gO| to see the table of contents.
 
 ==============================================================================
-INTRODUCTION                                           *ts-intro*
+INTRODUCTION                                           *ts-install-intro*
 
-ts.nvim functionalities for managing treesitter parsers and compatible
+ts-install.nvim functionalities for managing treesitter parsers and compatible
 queries.
 
 ==============================================================================
-QUICK START                                       *ts-quickstart*
+QUICK START                                       *ts-install-quickstart*
 
 Install the parser for your language
 
@@ -29,7 +29,7 @@ To get a list of supported languages
 To install supported parsers and queries, put this in your `init.lua` file:
 
 >lua
-  require('ts').setup {
+  require('ts-install').setup {
     -- A directory to install the parsers and queries to.
     -- Defaults to the `stdpath('data')/site` dir.
     install_dir = "/some/path/to/store/parsers",
@@ -45,10 +45,10 @@ To install supported parsers and queries, put this in your `init.lua` file:
   }
 
 <
-To check installed parsers and queries, use `:checkhealth ts`.
+To check installed parsers and queries, use `:checkhealth ts-install`.
 
 ==============================================================================
-COMMANDS                                            *ts-commands* *:TS*
+COMMANDS                                            *ts-install-commands* *:TS*
 
 								  *:TS-install*
 :TS install {language} ... ~
