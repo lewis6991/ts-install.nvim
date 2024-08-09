@@ -1,8 +1,0 @@
-# vim: ft=meson
-
-myobj
-  .do_something('now')
-
-myobj.do_something('now')
-  .do_something('now')
-  .do_something('now')

@@ -1,8 +1,0 @@
-digraph {
-  node [
-    shape=ellipse,
-  ];
-  subgraph sub {
-    a1 -> a2 -> a3;
-  }
-}
