@@ -2,10 +2,10 @@ local fn = vim.fn
 local fs = vim.fs
 local uv = vim.uv
 
-local a = require('nvim-treesitter.async')
-local config = require('nvim-treesitter.config')
-local log = require('nvim-treesitter.log')
-local util = require('nvim-treesitter.util')
+local a = require('ts.async')
+local config = require('ts.config')
+local log = require('ts.log')
+local util = require('ts.util')
 
 --- @type fun(path: string, new_path: string, flags?: table): string?
 local uv_copyfile = a.wrap(uv.fs_copyfile, 4)
@@ -47,7 +47,7 @@ local M = {}
 ---@param lang string
 ---@return InstallInfo?
 local function get_parser_install_info(lang)
-  local parser_config = require('nvim-treesitter.parsers')[lang]
+  local parser_config = require('ts.parsers')[lang]
 
   if not parser_config then
     log.error('Parser not available for language "' .. lang .. '"')
@@ -354,7 +354,7 @@ end
 
 --- Reload the parser table and user modifications in case of update
 local function reload_parsers()
-  package.loaded['nvim-treesitter.parsers'] = nil
+  package.loaded['ts.parsers'] = nil
   vim.api.nvim_exec_autocmds('User', { pattern = 'TSUpdate' })
 end
 
@@ -473,7 +473,7 @@ M.uninstall = a.sync(function(languages, _options, _callback)
   for _, lang in ipairs(languages) do
     local logger = log.new('uninstall/' .. lang)
     if not vim.list_contains(installed, lang) then
-      log.warn('Parser for ' .. lang .. ' is is not managed by nvim-treesitter')
+      log.warn('Parser for ' .. lang .. ' is is not managed by ts')
     else
       local parser = fs.joinpath(parser_dir, lang) .. '.so'
       local queries = fs.joinpath(query_dir, lang)

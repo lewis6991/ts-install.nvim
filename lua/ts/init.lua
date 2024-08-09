@@ -1,29 +1,15 @@
 local M = {}
 
---- @class ts.config
---- @field auto_install boolean
---- @field ensure_install string[]
---- @field ignore_install string[]
---- @field install_dir string
-
----@type ts.config
-local config = {
-  auto_install = false,
-  ensure_install = {},
-  ignore_install = { 'unsupported' },
-  install_dir = vim.fs.joinpath(vim.fn.stdpath('data'), 'ts'),
-}
-
 ---Setup call for users to override configuration configurations.
----@param user_data ts.config? user configuration table
-function M.setup(user_data)
-  if user_data then
-    if user_data.install_dir then
-      user_data.install_dir = vim.fs.normalize(user_data.install_dir)
-      --TODO(clason): insert after/before site, or leave to user?
-      vim.opt.runtimepath:append(user_data.install_dir)
-    end
-    config = vim.tbl_deep_extend('force', config, user_data)
+---@param user_config ts.config? user configuration table
+function M.setup(user_config)
+  local ts_config = require('ts.config')
+  ts_config.apply(user_config)
+
+  local config = ts_config.config
+
+  if config.install_dir then
+    vim.opt.runtimepath:append(config.install_dir)
   end
 
   if config.auto_install then
@@ -33,11 +19,11 @@ function M.setup(user_data)
         local ft = vim.bo[buf].filetype
         local lang = vim.treesitter.language.get_lang(ft) or ft
         if
-          require('nvim-treesitter.parsers')[lang]
+          require('ts.parsers')[lang]
           and not vim.list_contains(M.installed_parsers(), lang)
           and not vim.list_contains(config.ignore_install, lang)
         then
-          require('nvim-treesitter.install').install(lang, nil, function()
+          require('ts.install').install(lang, nil, function()
             -- Need to pcall since 'FileType' can be triggered multiple times
             -- per buffer
             pcall(vim.treesitter.start, buf, lang)
@@ -51,7 +37,7 @@ function M.setup(user_data)
     local to_install = M.norm_languages(config.ensure_install, { ignored = true, installed = true })
 
     if #to_install > 0 then
-      require('nvim-treesitter.install').install(to_install, { force = true })
+      require('ts.install').install(to_install, { force = true })
     end
   end
 end
@@ -61,12 +47,13 @@ end
 ---@param dir_name string
 ---@return string
 function M.get_install_dir(dir_name)
+  local config = require('ts.config').config
   local dir = vim.fs.joinpath(config.install_dir, dir_name)
 
   if not vim.uv.fs_stat(dir) then
     local ok, err = pcall(vim.fn.mkdir, dir, 'p', '0755')
     if not ok then
-      local log = require('nvim-treesitter.log')
+      local log = require('ts.log')
       log.error(err --[[@as string]])
     end
   end
@@ -88,7 +75,7 @@ end
 -- Get a list of all available parsers
 ---@return string[]
 function M.get_available()
-  local parsers = require('nvim-treesitter.parsers')
+  local parsers = require('ts.parsers')
   --- @type string[]
   local languages = vim.tbl_keys(parsers)
   table.sort(languages)
@@ -116,6 +103,7 @@ function M.norm_languages(languages, skip)
   end
 
   if skip.ignored then
+    local config = require('ts.config').config
     local ignored = config.ignore_install
     languages = vim.tbl_filter(
       --- @param v string
@@ -148,7 +136,7 @@ function M.norm_languages(languages, skip)
     )
   end
 
-  local parsers = require('nvim-treesitter.parsers')
+  local parsers = require('ts.parsers')
   languages = vim.tbl_filter(
     --- @param v string
     function(v)

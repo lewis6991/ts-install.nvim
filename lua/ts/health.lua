@@ -1,6 +1,6 @@
-local parsers = require('nvim-treesitter.parsers')
-local config = require('nvim-treesitter.config')
-local util = require('nvim-treesitter.util')
+local parsers = require('ts.parsers')
+local config = require('ts.config')
+local util = require('ts.util')
 local tsq = vim.treesitter.query
 local health = vim.health
 
@@ -25,29 +25,23 @@ local function install_health()
 
   do -- nvim check
     if vim.fn.has('nvim-0.10') ~= 1 then
-      health.error('Nvim-treesitter requires the latest Neovim nightly')
+      health.error('ts requires the latest Neovim 0.10')
     end
 
     if vim.treesitter.language_version then
       if vim.treesitter.language_version >= NVIM_TREESITTER_MINIMUM_ABI then
-        health.ok(
-          'Neovim was compiled with tree-sitter runtime ABI version '
-            .. vim.treesitter.language_version
-            .. ' (required >='
-            .. NVIM_TREESITTER_MINIMUM_ABI
-            .. ').'
-        )
+        health.ok(string.format(
+          'Neovim was compiled with tree-sitter runtime ABI version %s (required >=%s).',
+          vim.treesitter.language_version,
+          NVIM_TREESITTER_MINIMUM_ABI
+        ))
       else
-        health.error(
-          'Neovim was compiled with tree-sitter runtime ABI version '
-            .. vim.treesitter.language_version
-            .. '.\n'
-            .. 'nvim-treesitter expects at least ABI version '
-            .. NVIM_TREESITTER_MINIMUM_ABI
-            .. '\n'
-            .. 'Please make sure that Neovim is linked against a recent tree-sitter library when building'
-            .. ' or raise an issue at your Neovim packager. Parsers must be compatible with runtime ABI.'
-        )
+        health.error(table.concat({
+          string.format('Neovim was compiled with tree-sitter runtime ABI version %s.\n', vim.tree_sitter.language_version),
+          string.format('ts expects at least ABI version %s\n', NVIM_TREESITTER_MINIMUM_ABI),
+          'Please make sure that Neovim is linked against a recent tree-sitter library when building',
+          ' or raise an issue at your Neovim packager. Parsers must be compatible with runtime ABI.',
+        }))
       end
     end
   end

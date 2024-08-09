@@ -1,4 +1,4 @@
----@type nvim-ts.parsers
+--- @type nvim-ts.parsers
 return {
   ada = {
     install_info = {

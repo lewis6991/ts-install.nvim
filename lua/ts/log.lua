@@ -14,7 +14,7 @@ local sev_to_hl = {
 ---@param ctx string?
 ---@return string
 local function mkpfx(ctx)
-  return ctx and string.format('[nvim-treesitter/%s]', ctx) or '[nvim-treesitter]'
+  return ctx and string.format('[ts/%s]', ctx) or '[ts]'
 end
 
 --- @class NTSLogModule
