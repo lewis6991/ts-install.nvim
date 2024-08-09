@@ -19,9 +19,13 @@ local function subcmd_candidates(line)
   elseif n > 2 then
     local subcmd = words[2]
     if subcmd == 'install' or subcmd == 'install_from_grammar' then
-      return require('ts.parsers').get_available()
+      local langs = require('ts.parsers').get_available()
+      table.insert(langs, 'all')
+      return langs
     elseif subcmd == 'update' or subcmd == 'uninstall' then
-      return require('ts.parsers').installed()
+      local langs = require('ts.parsers').installed()
+      table.insert(langs, 'all')
+      return langs
     end
   end
 end

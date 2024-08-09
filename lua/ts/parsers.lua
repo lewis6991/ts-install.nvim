@@ -31,12 +31,16 @@ local util = require('ts.util')
 
 local M = {}
 
+function M.get_parser_info()
+  --- @type table<string,ts.ParserInfo>
+  return require('nvim-treesitter.parsers')
+end
+
 --- Get a list of all available parsers
 --- @return string[]
 function M.get_available()
-  local parsers = require('ts.parser_info')
   --- @type string[]
-  local languages = vim.tbl_keys(parsers)
+  local languages = vim.tbl_keys(M.get_parser_info())
   table.sort(languages)
   return languages
 end
@@ -95,7 +99,7 @@ function M.norm_languages(languages, skip)
     )
   end
 
-  local parser_info = require('ts.parser_info')
+  local parser_info = M.get_parser_info()
   languages = vim.tbl_filter(
     --- @param v string
     function(v)
@@ -127,7 +131,6 @@ function M.dir(dir_name)
   if not vim.uv.fs_stat(dir) then
     local ok, err = pcall(vim.fn.mkdir, dir, 'p', '0755')
     if not ok then
-      local log = require('ts.log')
       log.error(err --[[@as string]])
     end
   end
@@ -149,7 +152,7 @@ end
 --- @param lang string
 --- @return ts.InstallInfo?
 function M.install_info(lang)
-  local parser_info = require('ts.parser_info')[lang]
+  local parser_info = M.get_parser_info()[lang]
 
   if not parser_info then
     log.error('Parser not available for language "' .. lang .. '"')

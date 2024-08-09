@@ -1,4 +1,3 @@
-local parser_info = require('ts.parser_info')
 local config = require('ts.config').config
 local parsers = require('ts.parsers')
 local util = require('ts.util')
@@ -126,6 +125,7 @@ function M.check()
 
   -- Parser installation checks
   health.start('Installed languages' .. string.rep(' ', 5) .. 'H L F I J')
+  local parser_info = parsers.get_parser_info()
   local languages = parsers.installed()
   for _, lang in pairs(languages) do
     local parser = parser_info[lang]
@@ -133,6 +133,7 @@ function M.check()
     if parser.install_info then
       for _, query_group in pairs(M.bundled_queries) do
         local status, err = query_status(lang, query_group)
+        --- @type string
         out = out .. status .. ' '
         if err then
           table.insert(error_collection, { lang, query_group, err })
