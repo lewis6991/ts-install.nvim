@@ -5,7 +5,6 @@ local uv = vim.uv
 local a = require('nvim-treesitter.async')
 local config = require('nvim-treesitter.config')
 local log = require('nvim-treesitter.log')
-local parsers = require('nvim-treesitter.parsers')
 local util = require('nvim-treesitter.util')
 
 --- @type fun(path: string, new_path: string, flags?: table): string?
@@ -48,7 +47,7 @@ local M = {}
 ---@param lang string
 ---@return InstallInfo?
 local function get_parser_install_info(lang)
-  local parser_config = parsers[lang]
+  local parser_config = require('nvim-treesitter.parsers')[lang]
 
   if not parser_config then
     log.error('Parser not available for language "' .. lang .. '"')
@@ -356,7 +355,6 @@ end
 --- Reload the parser table and user modifications in case of update
 local function reload_parsers()
   package.loaded['nvim-treesitter.parsers'] = nil
-  parsers = require('nvim-treesitter.parsers')
   vim.api.nvim_exec_autocmds('User', { pattern = 'TSUpdate' })
 end
 

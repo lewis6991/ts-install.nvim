@@ -26,13 +26,13 @@ local function execute(func, callback, ...)
 
     if co.status(thread) == 'dead' then
       if callback then
-        callback(unpack(ret, 3))
+        callback(unpack(ret, 3, table.maxn(ret)))
       end
       return
     end
 
     --- @type function, any[]
-    local fn, args = ret[3], { select(4, unpack(ret)) }
+    local fn, args = ret[3], { unpack(ret, 4, table.maxn(ret)) }
     args[nargs_or_err] = step
     fn(unpack(args, 1, nargs_or_err))
   end
