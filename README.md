@@ -1,7 +1,5 @@
 This plugin provides functions for installing, updating, and removing **tree-sitter parsers**.
 
-# Quickstart
-
 ## Requirements
 
 - Nvim-treesitter for queries and parser information.
@@ -12,7 +10,7 @@ This plugin provides functions for installing, updating, and removing **tree-sit
 
 ## Installation
 
-pckr.nvim:
+[pckr.nvim](https://github.com/lewis6991/pckr.nvim):
 ```lua
 require('pckr').add({
   { 'nvim-treesitter/nvim-treesitter',
@@ -41,7 +39,7 @@ require('pckr').add({
 })
 ```
 
-lazy.nvim:
+[lazy.nvim](https://github.com/folke/lazy.nvim):
 ```lua
 require('lazy').setup(
   { 'nvim-treesitter/nvim-treesitter',
@@ -71,16 +69,15 @@ require('lazy').setup(
 
 ## Setup
 
-`ts.nvim` can be optionally configured by calling `setup`.
+`ts.nvim` can be optionally configured by calling `setup()`.
 The following snippet lists the available options and their default values.
 
 ```lua
 require'ts'.setup {
-  -- A list of parser names or tiers ('stable', 'core', 'community', 'unsupported')
   ensure_install = { },
 
   -- List of parsers to ignore installing
-  ignore_install = { 'unsupported' },
+  ignore_install = { },
 
   -- Automatically install missing parsers when entering buffer
   auto_install = false,
@@ -91,3 +88,13 @@ require'ts'.setup {
 ```
 
 Check [`:h ts-commands`](doc/ts.txt) for a list of all available commands.
+
+## FAQ
+
+### Why does this plugin exist?
+
+The scope of nvim-treesitter has grew too large and aims to both support the query and parser information for all files
+in addition to the installation and parser management functionality.
+
+The goal of this plugin is to only provide the latter in a more opinionated way.
+
