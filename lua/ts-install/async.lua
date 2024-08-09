@@ -62,7 +62,7 @@ end
 --- @param nargs integer
 --- @param func async F
 --- @return F
-function M.sync(nargs, func)
+function M.create(nargs, func)
   return function(...)
     local callback = select(nargs + 1, ...)
     execute(func, callback, unpack({ ... }, 1, nargs))

@@ -24,6 +24,7 @@ local uv_unlink = async.wrap(2, uv.fs_unlink)
 
 local max_jobs = 10
 
+--- @async
 --- @param cmd string[]
 --- @param opts vim.SystemOpts
 --- @return vim.SystemCompleted
@@ -81,10 +82,7 @@ local function needs_update(lang)
   return uv.fs_realpath(queries) ~= uv.fs_realpath(queries_src)
 end
 
----
---- PARSER MANAGEMENT FUNCTIONS
----
-
+--- @async
 --- @param logger ts_install.Logger
 --- @param repo ts_install.InstallInfo
 --- @param compile_location string
@@ -110,6 +108,7 @@ local function do_generate(logger, repo, compile_location)
   end
 end
 
+--- @async
 --- @param logger ts_install.Logger
 --- @param repo ts_install.InstallInfo
 --- @param project_name string
@@ -198,6 +197,7 @@ local function do_download(logger, repo, project_name, cache_dir, revision, proj
   util.delete(temp_dir)
 end
 
+--- @async
 --- @param logger ts_install.Logger
 --- @param compile_location string
 --- @return string? err
@@ -215,6 +215,7 @@ local function do_compile(logger, compile_location)
   end
 end
 
+--- @async
 --- @param logger ts_install.Logger
 --- @param compile_location string
 --- @param target_location string
@@ -235,6 +236,7 @@ local function do_install(logger, compile_location, target_location)
   end
 end
 
+--- @async
 --- @param lang string
 --- @param info ts_install.InstallInfo
 --- @param logger ts_install.Logger
@@ -300,6 +302,7 @@ local function install_parser(lang, info, logger, generate)
   end
 end
 
+--- @async
 --- @param lang string
 --- @param generate? boolean
 --- @return string? err
@@ -335,6 +338,7 @@ local install_status = {} --- @type table<string,ts_install.install.Status?>
 
 local INSTALL_TIMEOUT = 60000
 
+--- @async
 --- @param lang string
 --- @param force? boolean
 --- @param generate? boolean
@@ -388,7 +392,7 @@ local function install(languages, options, _callback)
   local tasks = {} --- @type fun()[]
   local done = 0
   for _, lang in ipairs(languages) do
-    tasks[#tasks + 1] = async.sync(0, function()
+    tasks[#tasks + 1] = async.create(0, function()
       async.main()
       local status = try_install_lang(lang, options.force, options.generate)
       if status ~= 'failed' then
@@ -406,7 +410,8 @@ end
 
 --- @param languages string[]|string
 --- @param options? ts_install.install.InstallOpts
-M.install = async.sync(2, function(languages, options, _callback)
+--- @param _callback? fun()
+M.install = async.create(2, function(languages, options, _callback)
   reload_parsers()
   if not languages or #languages == 0 then
     languages = 'all'
@@ -426,7 +431,7 @@ end)
 --- @param languages? string[]|string
 --- @param _options? ts_install.install.UpdateOpts
 --- @param _callback? function
-M.update = async.sync(2, function(languages, _options, _callback)
+M.update = async.create(2, function(languages, _options, _callback)
   reload_parsers()
   if not languages or #languages == 0 then
     languages = 'all'
@@ -441,6 +446,7 @@ M.update = async.sync(2, function(languages, _options, _callback)
   end
 end)
 
+--- @async
 --- @param logger ts_install.Logger
 --- @param lang string
 --- @param parser string
@@ -469,7 +475,7 @@ end
 --- @param languages string[]|string
 --- @param _options? ts_install.install.UpdateOpts
 --- @param _callback? fun()
-M.uninstall = async.sync(2, function(languages, _options, _callback)
+M.uninstall = async.create(2, function(languages, _options, _callback)
   languages = parsers.norm_languages(languages or 'all', { missing = true, dependencies = true })
 
   local parser_dir = parsers.dir('parser')
@@ -485,7 +491,7 @@ M.uninstall = async.sync(2, function(languages, _options, _callback)
     else
       local parser = fs.joinpath(parser_dir, lang) .. '.so'
       local queries = fs.joinpath(query_dir, lang)
-      tasks[#tasks + 1] = async.sync(0, function()
+      tasks[#tasks + 1] = async.create(0, function()
         local err = uninstall_lang(logger, lang, parser, queries)
         if not err then
           done = done + 1
