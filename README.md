@@ -2,7 +2,7 @@ This plugin provides functions for installing, updating, and removing **tree-sit
 
 ## Requirements
 
-- Nvim-treesitter for queries and parser information.
+- [Nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter) for queries and parser information.
 - Neovim 0.10.0 or later
 - `tar` and `curl` in your path (or alternatively `git`)
 - [`tree-sitter`](https://github.com/tree-sitter/tree-sitter) CLI (0.22.6 or later)
