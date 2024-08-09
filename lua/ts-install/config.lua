@@ -10,9 +10,10 @@ local std_data = vim.fn.stdpath('data') --[[@as string]]
 
 ---@type ts_install.config
 M.config = {
+  -- REVISIT lewrus01 (09/08/24): default to true when we switch to wasm
   auto_install = false,
   ensure_install = {},
-  ignore_install = { 'unsupported' },
+  ignore_install = {},
   install_dir = vim.fs.joinpath(std_data, 'ts-install'),
 }
 
