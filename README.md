@@ -50,7 +50,7 @@ require('lazy').setup(
   { 'lewis6991/ts-install.nvim',
     -- OPTIONAL
     config = function()
-      require('ts').setup({
+      require('ts-install').setup({
         ensure_install = {
           'lua',
           'c',
