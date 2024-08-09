@@ -29,6 +29,36 @@ local function do_ensure_install(langs)
   end
 end
 
+--- @param sources string[]
+local function do_auto_update(sources)
+  local nvim_ts_path = vim.api.nvim_get_runtime_file('lua/nvim-treesitter/parsers.lua', true)[1]
+  if not nvim_ts_path then
+    vim.notify('nvim-treesitter is not installed', vim.log.levels.ERROR)
+  end
+
+  local stddata = vim.fn.stdpath('data') --[[@as string]]
+  local timestamp_path = vim.fs.joinpath(stddata, 'ts-install', 'update_timestamp')
+  local timestamp_stat = vim.uv.fs_stat(timestamp_path)
+
+  local needs_update = false
+  if not timestamp_stat then
+    needs_update = true
+  else
+    for _, source in ipairs(sources) do
+      local source_stat = vim.uv.fs_stat(source)
+      if source_stat and timestamp_stat.mtime.sec < source_stat.mtime.sec then
+        needs_update = true
+        break
+      end
+    end
+  end
+
+  if needs_update then
+    require('ts-install.install').update()
+    require('ts-install.util').write_file(timestamp_path, '')
+  end
+end
+
 ---Setup call for users to override configuration configurations.
 ---@param user_config ts_install.config? user configuration table
 function M.setup(user_config)
@@ -45,6 +75,14 @@ function M.setup(user_config)
 
   if #config.ensure_install > 0 then
     do_ensure_install(config.ensure_install)
+  end
+
+  if config.auto_update then
+    local nvim_ts_path = vim.api.nvim_get_runtime_file('lua/nvim-treesitter/parsers.lua', true)[1]
+    if not nvim_ts_path then
+      vim.notify('nvim-treesitter is not installed', vim.log.levels.ERROR)
+    end
+    do_auto_update({nvim_ts_path})
   end
 end
 

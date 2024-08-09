@@ -22,8 +22,6 @@ require('pckr').add({
 
   { 'lewis6991/ts-install.nvim',
     requires = 'nvim-treesitter/nvim-treesitter',
-    run = ':TS update',
-
     -- OPTIONAL
     config = function()
       require('ts-install').setup({
@@ -50,8 +48,6 @@ require('lazy').setup(
   },
 
   { 'lewis6991/ts-install.nvim',
-    build = ':TS update',
-
     -- OPTIONAL
     config = function()
       require('ts').setup({
