@@ -89,7 +89,7 @@ Check [`:h ts-install-commands`](doc/ts-install.txt) for a list of all available
 
 ### Why does this plugin exist?
 
-The scope of nvim-treesitter has grew too large and aims to both support the query and parser information for all files
+The scope of nvim-treesitter is too large and aims to both support the query and parser information for a vast amount of languages,
 in addition to the installation and parser management functionality.
 
 The goal of this plugin is to only provide the latter in a more opinionated way.
