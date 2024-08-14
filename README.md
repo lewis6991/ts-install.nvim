@@ -1,8 +1,9 @@
 This plugin provides functions for installing, updating, and removing **tree-sitter parsers**.
 
+Parser information and queries are pulled on-demand from [Nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
+
 ## Requirements
 
-- [Nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter) for queries and parser information.
 - Neovim 0.10.0 or later
 - `tar` and `curl` in your path (or alternatively `git`)
 - [`tree-sitter`](https://github.com/tree-sitter/tree-sitter) CLI (0.22.6 or later)
@@ -13,15 +14,7 @@ This plugin provides functions for installing, updating, and removing **tree-sit
 [pckr.nvim](https://github.com/lewis6991/pckr.nvim):
 ```lua
 require('pckr').add({
-  { 'nvim-treesitter/nvim-treesitter',
-    branch = 'main',
-    config_pre = function()
-      vim.g.loaded_nvim_treesitter = 1
-    end
-  },
-
   { 'lewis6991/ts-install.nvim',
-    requires = 'nvim-treesitter/nvim-treesitter',
     -- OPTIONAL
     config = function()
       require('ts-install').setup({
@@ -40,13 +33,6 @@ require('pckr').add({
 [lazy.nvim](https://github.com/folke/lazy.nvim):
 ```lua
 require('lazy').setup(
-  { 'nvim-treesitter/nvim-treesitter',
-    branch = 'main',
-    init = function()
-      vim.g.loaded_nvim_treesitter = 1
-    end,
-  },
-
   { 'lewis6991/ts-install.nvim',
     -- OPTIONAL
     config = function()

@@ -4,6 +4,7 @@
 --- @field ensure_install string[]
 --- @field ignore_install string[]
 --- @field install_dir string
+--- @field parsers? fun():table<string,ts_install.ParserInfo>
 
 local M = {}
 

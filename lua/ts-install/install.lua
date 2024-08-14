@@ -67,6 +67,8 @@ function M.get_package_path(...)
   return fs.joinpath(nvim_treesitter_dir, ...)
 end
 
+local queries_url = 'https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/master/queries'
+
 --- @param lang string
 --- @return boolean
 local function needs_update(lang)
@@ -385,12 +387,6 @@ local function try_install_lang(lang, force, generate)
   return status
 end
 
---- Reload the parser table and user modifications in case of update
-local function reload_parsers()
-  --- @diagnostic disable-next-line:no-unknown
-  package.loaded['nvim-treesitter.parsers'] = nil
-end
-
 --- @class ts_install.install.InstallOpts
 --- @field force? boolean
 --- @field generate? boolean
@@ -426,7 +422,7 @@ end
 --- @param options? ts_install.install.InstallOpts
 --- @param _callback? fun()
 M.install = async.create(2, function(languages, options, _callback)
-  reload_parsers()
+  parsers.update()
   if not languages or #languages == 0 then
     languages = 'all'
   end
@@ -446,7 +442,7 @@ end)
 --- @param _options? ts_install.install.UpdateOpts
 --- @param _callback? function
 M.update = async.create(2, function(languages, _options, _callback)
-  reload_parsers()
+  parsers.update()
   if not languages or #languages == 0 then
     languages = 'all'
   end
