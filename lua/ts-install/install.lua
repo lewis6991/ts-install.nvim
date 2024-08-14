@@ -26,10 +26,11 @@ local max_jobs = 10
 
 --- @async
 --- @param cmd string[]
---- @param opts vim.SystemOpts
+--- @param opts? vim.SystemOpts
 --- @return vim.SystemCompleted
 local function system(cmd, opts)
-  log.trace('running job: (cwd=%s) %s', opts.cwd, table.concat(cmd, ' '))
+  local cwd = opts and opts.cwd or uv.cwd()
+  log.trace('running job: (cwd=%s) %s', cwd, table.concat(cmd, ' '))
   local r = async.wrap(3, vim.system)(cmd, opts) --[[@as vim.SystemCompleted]]
   async.main()
   if r.stdout and r.stdout ~= '' then
@@ -53,7 +54,7 @@ function M.get_package_path(...)
     local runtime_dirs = vim.api.nvim_get_runtime_file('runtime', true)
     for _, dir in ipairs(runtime_dirs) do
       if dir:match('/nvim%-treesitter/') then
-        nvim_treesitter_dir = vim.fs.dirname(dir)
+        nvim_treesitter_dir = fs.dirname(dir)
         break
       end
     end
@@ -109,92 +110,109 @@ local function do_generate(logger, repo, compile_location)
 end
 
 --- @async
+--- @param url string
+--- @param output string
+--- @return string? err
+local function download_file(url, output)
+  local r = system({
+    'curl',
+    '--silent',
+    '--show-error',
+    '-L', -- follow redirects
+    url,
+    '--output',
+    output,
+  })
+  if r.code > 0 then
+    return r.stderr
+  end
+end
+
+--- @async
+--- @param path string
+--- @param mode? string
+--- @return string? err
+local function mkpath(path, mode)
+  local parent = fs.dirname(path)
+  if not parent:match('^[./]$') and not uv.fs_stat(parent) then
+    mkpath(parent, mode)
+  end
+
+  return uv_mkdir(path, tonumber(mode or '755', 8))
+end
+
+--- @async
 --- @param logger ts_install.Logger
---- @param repo ts_install.InstallInfo
+--- @param url string
 --- @param project_name string
 --- @param cache_dir string
 --- @param revision string
---- @param project_dir string
+--- @param output_dir string
 --- @return string? err
-local function do_download(logger, repo, project_name, cache_dir, revision, project_dir)
-  local is_gitlab = repo.url:find('gitlab.com', 1, true)
-  local url = repo.url:gsub('.git$', '')
+local function do_download(logger, url, project_name, cache_dir, revision, output_dir)
+  local is_gitlab = url:find('gitlab.com', 1, true)
 
-  local dir_rev = revision
-  if revision:find('^v%d') then
-    dir_rev = revision:sub(2)
-  end
+  local tmp = output_dir .. '-tmp'
 
-  local temp_dir = project_dir .. '-tmp'
+  util.delete(tmp)
 
-  util.delete(temp_dir)
-
-  logger:info('Downloading %s...', project_name)
+  url = url:gsub('.git$', '')
   local target = is_gitlab
       and string.format('%s/-/archive/%s/%s-%s.tar.gz', url, revision, project_name, revision)
     or string.format('%s/archive/%s.tar.gz', url, revision)
 
-  do
-    local r = system({
-      'curl',
-      '--silent',
-      '--show-error',
-      '-L', -- follow redirects
-      target,
-      '--output',
-      project_name .. '.tar.gz',
-    }, {
-      cwd = cache_dir,
-    })
-    if r.code > 0 then
-      return logger:error('Error during download: %s', r.stderr)
+  local tarball_path = fs.joinpath(cache_dir, project_name .. '.tar.gz')
+
+  do -- Download tarball
+    logger:info('Downloading %s...', project_name)
+    local err = download_file(target, tarball_path)
+    if err then
+      return logger:error('Error during download: %s', err)
     end
   end
 
-  logger:debug('Creating temporary directory: %s', temp_dir)
-
-  do
-    --TODO(clason): use fn.mkdir(temp_dir, 'p') in case stdpath('cache') is not created
-    local err = uv_mkdir(temp_dir, tonumber('755', 8))
+  do -- Create tmp dir
+    logger:debug('Creating temporary directory: %s', tmp)
+    local err = mkpath(tmp)
     async.main()
     if err then
       return logger:error('Could not create %s-tmp: %s', project_name, err)
     end
   end
 
-  logger:info('Extracting %s...', project_name)
-  do
-    local r = system({
-      'tar',
-      '-xzf',
-      project_name .. '.tar.gz',
-      '-C',
-      project_name .. '-tmp',
-    }, {
-      cwd = cache_dir,
-    })
+  do -- Extract tarball
+    local project_tmp = fs.joinpath(cache_dir, project_name .. '-tmp')
+    logger:debug('Extracting %s into %s...', tarball_path, project_tmp)
+    local r = system({ 'tar', '-xzf', tarball_path, '-C', project_tmp })
     if r.code > 0 then
       return logger:error('Error during tarball extraction: %s', r.stderr)
     end
   end
 
-  do
-    local err = uv_unlink(project_dir .. '.tar.gz')
+  do -- Remove tarball
+    logger:info('Removing %s...', tarball_path)
+    local err = uv_unlink(tarball_path)
     async.main()
     if err then
       return logger:error('Could not remove tarball: %s', err)
     end
   end
 
-  do
-    local err = uv_rename(fs.joinpath(temp_dir, url:match('[^/]-$') .. '-' .. dir_rev), project_dir)
+  do -- Move tmp dir to output dir
+    -- REVISIT lewrus01 (14/08/24): Do we need this?
+    local dir_rev = revision:find('^v%d') and revision:sub(2) or revision
+    local repo_project_name = url:match('[^/]-$')
+    local extracted = fs.joinpath(tmp, repo_project_name .. '-' .. dir_rev)
+    logger:info('Moving %s to %s/...', extracted, output_dir)
+    local err = uv_rename(extracted, output_dir)
     async.main()
     if err then
       return logger:error('Could not rename temp: %s', err)
     end
   end
 
-  util.delete(temp_dir)
+  -- REVISIT lewrus01 (14/08/24): Make async
+  util.delete(tmp)
 end
 
 --- @async
@@ -243,7 +261,7 @@ end
 --- @param generate? boolean
 --- @return string? err
 local function install_parser(lang, info, logger, generate)
-  local cache_dir = vim.fs.normalize(fn.stdpath('cache') --[[@as string]])
+  local cache_dir = fs.normalize(fn.stdpath('cache') --[[@as string]])
   local project_name = 'tree-sitter-' .. lang
   local revision = info.revision
 
@@ -251,16 +269,15 @@ local function install_parser(lang, info, logger, generate)
   if info.path then
     compile_location = fs.normalize(info.path)
   else
-    local project_dir = fs.joinpath(cache_dir, project_name)
-    util.delete(project_dir)
+    compile_location = fs.joinpath(cache_dir, project_name)
+    util.delete(compile_location)
 
     revision = revision or info.branch or 'main'
 
-    local err = do_download(logger, info, project_name, cache_dir, revision, project_dir)
+    local err = do_download(logger, info.url, project_name, cache_dir, revision, compile_location)
     if err then
       return err
     end
-    compile_location = fs.joinpath(cache_dir, project_name)
   end
 
   if info.location then
