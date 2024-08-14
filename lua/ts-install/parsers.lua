@@ -1,4 +1,5 @@
 local log = require('ts-install.log')
+local util = require('ts-install.util')
 
 --- @class ts_install.InstallInfo
 ---
@@ -33,9 +34,105 @@ local log = require('ts-install.log')
 
 local M = {}
 
-function M.get_parser_info()
+local function get_config()
+  return require('ts-install.config').config
+end
+
+local nvim_ts_url = 'https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/main'
+local parsers_url = nvim_ts_url..'/lua/nvim-treesitter/parsers.lua'
+local queries_url = nvim_ts_url..'/queries'
+
+local stddata = vim.fn.stdpath('data') --[[@as string]]
+local parsers_local_path = vim.fs.joinpath(stddata, 'ts-install', 'parsers.lua')
+local queries_local_path = vim.fs.joinpath(stddata, 'ts-install', 'queries')
+
+--- @type table<string,ts_install.ParserInfo>?
+local parsers
+
+local logger = log.new('parsers')
+
+---@param retry? true
+local function get_parser_info(retry)
+  if parsers then
+    return parsers
+  end
+
+  local config_parsers = get_config().parsers
+  if config_parsers then
+    return config_parsers()
+  end
+
+  if not vim.uv.fs_stat(parsers_local_path) then
+    logger:debug('Downloading %s', parsers_url)
+    -- REVISIT lewrus01 (14/08/24): Make async
+    vim.system({
+      'curl', '--silent',
+      '--show-error',
+      parsers_url,
+      '--output',
+      parsers_local_path
+    }):wait()
+    vim.system({
+      'curl', '--silent',
+      '--show-error',
+      queries_url,
+      '--output',
+      queries_local_path
+    }):wait()
+  end
+
+  -- Can't use loadfile() with an empty function environment because of
+  -- vim.loader
+  local code = util.read_file(parsers_local_path)
+  local f = assert(loadstring(code, parsers_local_path))
+  local sandboxed_f = setfenv(f, {})
+
+  --- @diagnostic disable-next-line:no-unknown
+  local ok, err_or_parsers = pcall(sandboxed_f)
+
+  if not ok then
+    logger:debug('Failed loading %s: %s', parsers_local_path, err_or_parsers)
+    logger:debug('Deleting %s', parsers_local_path)
+    util.delete(parsers_local_path)
+    if not retry then
+      logger:debug('Retrying')
+      return get_parser_info(true)
+    end
+    logger:error('Failed to get parser information')
+    return {}
+  end
+
   --- @type table<string,ts_install.ParserInfo>
-  return require('nvim-treesitter.parsers')
+  parsers = err_or_parsers
+
+  return parsers
+end
+
+function M.update()
+  local parsers_backup = parsers
+  parsers = nil
+
+  -- loadfile(vim.api.nvim_get_runtime_file('lua/nvim-treesitter/parsers.lua', false))
+  -- require('nvim-treesitter/parsers.lua')
+
+
+  local old_parser_path = parsers_local_path .. '.old'
+  vim.uv.fs_rename(parsers_local_path, old_parser_path)
+
+  local ok, err = pcall(get_parser_info)
+  if not ok then
+    logger:error('Failed to update parsers: %s', err)
+    -- Restore previous parser information
+    util.delete(parsers_local_path)
+    vim.uv.fs_rename(old_parser_path, parsers_local_path)
+    parsers = parsers_backup
+  else
+    logger:info('Updated parsers')
+  end
+end
+
+function M.get_parser_info()
+  return get_parser_info()
 end
 
 --- Get a list of all available parsers
@@ -68,8 +165,7 @@ function M.norm_languages(languages, skip)
   end
 
   if skip.ignored then
-    local config = require('ts-install.config').config
-    local ignored = config.ignore_install
+    local ignored = get_config().ignore_install
     languages = vim.tbl_filter(
       --- @param v string
       function(v)
@@ -136,8 +232,7 @@ end
 ---@param dir_name string?
 ---@return string
 function M.dir(dir_name)
-  local config = require('ts-install.config').config
-  local dir = vim.fs.joinpath(config.install_dir, dir_name)
+  local dir = vim.fs.joinpath(get_config().install_dir, dir_name)
 
   if not vim.uv.fs_stat(dir) then
     local ok, err = pcall(vim.fn.mkdir, dir, 'p', '0755')
