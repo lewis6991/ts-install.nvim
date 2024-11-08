@@ -31,11 +31,6 @@ end
 
 --- @param sources string[]
 local function do_auto_update(sources)
-  local nvim_ts_path = vim.api.nvim_get_runtime_file('lua/nvim-treesitter/parsers.lua', true)[1]
-  if not nvim_ts_path then
-    vim.notify('nvim-treesitter is not installed', vim.log.levels.ERROR)
-  end
-
   local stddata = vim.fn.stdpath('data') --[[@as string]]
   local timestamp_path = vim.fs.joinpath(stddata, 'ts-install', 'update_timestamp')
   local timestamp_stat = vim.uv.fs_stat(timestamp_path)
