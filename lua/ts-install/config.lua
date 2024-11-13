@@ -1,4 +1,11 @@
 --- @class ts_install.config
+--- @field auto_install? boolean
+--- @field auto_update? boolean
+--- @field ensure_install? string[]
+--- @field ignore_install? string[]
+--- @field install_dir? string
+
+--- @class ts_install.config.normalized
 --- @field auto_install boolean
 --- @field auto_update boolean
 --- @field ensure_install string[]
@@ -9,7 +16,7 @@ local M = {}
 
 local std_data = vim.fn.stdpath('data') --[[@as string]]
 
----@type ts_install.config
+---@type ts_install.config.normalized
 M.config = {
   -- REVISIT lewrus01 (09/08/24): default to true when we switch to wasm
   auto_install = false,
