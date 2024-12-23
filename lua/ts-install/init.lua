@@ -77,7 +77,7 @@ function M.setup(user_config)
     if not nvim_ts_path then
       vim.notify('nvim-treesitter is not installed', vim.log.levels.ERROR)
     end
-    do_auto_update({nvim_ts_path})
+    do_auto_update({ nvim_ts_path })
   end
 end
 

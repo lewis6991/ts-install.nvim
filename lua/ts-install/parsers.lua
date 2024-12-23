@@ -1,9 +1,10 @@
+local fs = vim.fs
 local log = require('ts-install.log')
 
 --- @class ts_install.InstallInfo
 ---
 --- Revision of parser
---- @field revision string
+--- @field revision? string
 ---
 --- URL of parser repo (Github/Gitlab)
 --- @field url string
@@ -22,6 +23,9 @@ local log = require('ts-install.log')
 ---
 --- Parser repo is a local directory; overrides `url`, `revision`, and `branch`
 --- @field path? string
+---
+--- Path to query files in repo (if not at root).
+--- @field queries_dir? string
 
 --- @class ts_install.ParserInfo
 ---
@@ -31,11 +35,47 @@ local log = require('ts-install.log')
 --- List of other languages to install (e.g., if queries inherit from them)
 --- @field requires? string[]
 
+local nvim_treesitter_dir --- @type string
+
+--- @return string
+local function get_nvim_treesitter_dir()
+  if not nvim_treesitter_dir then
+    local runtime_dirs = vim.api.nvim_get_runtime_file('runtime', true)
+    for _, dir in ipairs(runtime_dirs) do
+      if dir:match('/nvim%-treesitter/') then
+        nvim_treesitter_dir = fs.dirname(dir)
+        break
+      end
+    end
+  end
+
+  if not nvim_treesitter_dir then
+    error('nvim-treesitter is not installed')
+  end
+
+  return nvim_treesitter_dir
+end
+
 local M = {}
 
+--- @type table<string,ts_install.ParserInfo>?
+local nvim_ts_parsers
+
+--- @return table<string,ts_install.ParserInfo>
 function M.get_parser_info()
-  --- @type table<string,ts_install.ParserInfo>
-  return require('nvim-treesitter.parsers')
+  if not nvim_ts_parsers then
+    --- @type table<string,ts_install.ParserInfo>
+    nvim_ts_parsers = vim.deepcopy(require('nvim-treesitter.parsers'))
+    for lang, parser_info in pairs(nvim_ts_parsers) do
+      parser_info.install_info = parser_info.install_info or {}
+      parser_info.install_info.queries_dir =
+        vim.fs.joinpath(get_nvim_treesitter_dir(), 'runtime', 'queries', lang)
+    end
+  end
+
+  local config = require('ts-install.config').config
+
+  return vim.tbl_extend('force', nvim_ts_parsers, config.parsers)
 end
 
 --- Get a list of all available parsers
@@ -135,9 +175,9 @@ end
 -- If the specified directory does not exist, it is created.
 ---@param dir_name string?
 ---@return string
-function M.dir(dir_name)
+local function install_dir(dir_name)
   local config = require('ts-install.config').config
-  local dir = vim.fs.joinpath(config.install_dir, dir_name)
+  local dir = fs.joinpath(config.install_dir, dir_name)
 
   if not vim.uv.fs_stat(dir) then
     local ok, err = pcall(vim.fn.mkdir, dir, 'p', '0755')
@@ -150,10 +190,8 @@ end
 
 ---@return string[]
 function M.installed()
-  local install_dir = M.dir('queries')
-
   local installed = {} --- @type string[]
-  for f in vim.fs.dir(install_dir) do
+  for f in fs.dir(install_dir('queries')) do
     installed[#installed + 1] = f
   end
 
@@ -176,19 +214,88 @@ end
 --- @param lang string
 --- @return string
 function M.revision_file(lang)
-  return vim.fs.joinpath(M.dir('parser-info'), lang .. '.revision.txt')
+  return fs.joinpath(install_dir('parser-info'), lang .. '.revision.txt')
 end
 
 --- @param lang string
 --- @return string
 function M.parser_file(lang)
-  return vim.fs.joinpath(M.dir('parser'), lang) .. '.so'
+  return fs.joinpath(install_dir('parser'), lang) .. '.so'
 end
 
 --- @param lang string
 --- @return string
 function M.queries_dir(lang)
-  return vim.fs.joinpath(M.dir('queries'), lang)
+  return fs.joinpath(install_dir('queries'), lang)
+end
+
+--- @param lang string
+--- @return string
+function M.queries_src_dir(lang)
+  local install_info = M.install_info(lang)
+  if install_info and install_info.queries_dir then
+    return install_info.queries_dir
+  end
+
+  return fs.joinpath(M.src_dir(lang), 'queries')
+end
+
+--- @param lang string
+--- @return string
+function M.src_dir(lang)
+  local install_info = M.install_info(lang)
+  if install_info and install_info.path then
+    return fs.normalize(install_info.path)
+  end
+
+  local cache_dir = fs.normalize(vim.fn.stdpath('cache') --[[@as string]])
+  -- Do not use M.project_name since project_name may contain multiple parsers.
+  return fs.joinpath(cache_dir, 'tree-sitter-' .. lang)
+end
+
+--- @param lang string
+--- @return string
+function M.compile_dir(lang)
+  local install_info = M.install_info(lang)
+  local src_dir = M.src_dir(lang)
+  if install_info and install_info.location then
+    return fs.joinpath(src_dir, install_info.location)
+  end
+  return src_dir
+end
+
+--- @param lang string
+--- @return string
+function M.project_name(lang)
+  local url = assert(M.install_info(lang)).url
+  url = url:gsub('.git$', '')
+  return assert(url:match('[^/]-$'))
+end
+
+--- @param lang string
+--- @return string
+function M.tarball_url(lang)
+  local revision = M.ref(lang)
+  local url = assert(M.install_info(lang)).url
+  local is_gitlab = url:find('gitlab.com', 1, true)
+  url = url:gsub('.git$', '')
+  if is_gitlab then
+    return ('%s/-/archive/%s/%s-%s.tar.gz'):format(url, revision, M.project_name(lang), revision)
+  end
+  return ('%s/archive/%s.tar.gz'):format(url, revision)
+end
+
+--- @param lang string
+--- @return string
+function M.ref(lang)
+  local info = assert(M.install_info(lang))
+  return info.revision or info.branch or 'main'
+end
+
+--- Reload the parser table and user modifications in case of update
+function M.reload()
+  --- @diagnostic disable-next-line:no-unknown
+  package.loaded['nvim-treesitter.parsers'] = nil
 end
 
 return M

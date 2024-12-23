@@ -85,6 +85,65 @@ require'ts-install'.setup {
 
 Check [`:h ts-install-commands`](doc/ts-install.txt) for a list of all available commands.
 
+## Adding additional parsers
+
+```lua
+require('ts-install').setup({
+  ...,
+  parsers = {
+    ['<name>'] = {
+      --- Information necessary to build and install the parser (empty for query-only language)
+      install_info = {
+        --- URL of parser repo (Github/Gitlab)
+        --- @type string?
+        url = ...,
+
+        --- Revision of parser
+        --- @type string?
+        revision = ...,
+
+        --- Branch of parser repo to download (if not default branch)
+        branch = ..., --- @type string?
+
+        --- Parser repo is a local directory; overrides `url`, `revision`, and `branch`
+        --- @type string
+        path = ...
+
+        --- Location of `grammar.js` in repo (if not at root, e.g., in a monorepo)
+        --- @type string?
+        location = ...,
+
+        --- Repo does not contain a `parser.c`; must be generated from grammar first
+        --- @type boolean?
+        generate = ...,
+
+        --- Parser needs to be generated from `grammar.json`
+        --- @type boolean?
+        generate_from_json = ...,
+      },
+
+      --- List of other languages to install (e.g., if queries inherit from them)
+      --- @type string[]
+      requires = { ... }
+    }
+  }
+})
+```
+
+Example:
+```lua
+require('ts-install').setup({
+  parsers = {
+    caddy = {
+      install_info = {
+        url = 'https://github.com/Samonitari/tree-sitter-caddy',
+        branch = 'master',
+      }
+    }
+  },
+})
+```
+
 ## FAQ
 
 ### Why does this plugin exist?
