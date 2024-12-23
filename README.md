@@ -103,7 +103,8 @@ require('ts-install').setup({
         revision = ...,
 
         --- Branch of parser repo to download (if not default branch)
-        branch = ..., --- @type string?
+        --- @type string?
+        branch = ...,
 
         --- Parser repo is a local directory; overrides `url`, `revision`, and `branch`
         --- @type string
