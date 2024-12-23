@@ -4,6 +4,7 @@
 --- @field ensure_install? string[]
 --- @field ignore_install? string[]
 --- @field install_dir? string
+--- @field parsers? table<string,ts_install.ParserInfo>
 
 --- @class ts_install.config.normalized
 --- @field auto_install boolean
@@ -11,6 +12,7 @@
 --- @field ensure_install string[]
 --- @field ignore_install string[]
 --- @field install_dir string
+--- @field parsers table<string,ts_install.ParserInfo>
 
 local M = {}
 
@@ -24,6 +26,7 @@ M.config = {
   ensure_install = {},
   ignore_install = {},
   install_dir = vim.fs.joinpath(std_data, 'ts-install'),
+  parsers = {},
 }
 
 --- Apply user configuration.

@@ -37,37 +37,58 @@ function M.new(ctx)
   return setmetatable({ ctx = ctx }, { __index = Logger })
 end
 
----@param m string
----@param ... any
+--- @param m string
+--- @param ... any
 function Logger:trace(m, ...)
   messages[#messages + 1] = { 'trace', self.ctx, m:format(...) }
 end
 
----@param m string
----@param ... any
+--- @param m string
+--- @param ... any
 function Logger:debug(m, ...)
   messages[#messages + 1] = { 'debug', self.ctx, m:format(...) }
 end
 
----@param m string
----@param ... any
+--- @param str string
+--- @param chunk_size number
+--- @return string[]
+local function split_string(str, chunk_size)
+  local chunks = {} --- @type string[]
+  for i = 1, #str, chunk_size do
+    chunks[#chunks + 1] = str:sub(i, i + chunk_size - 1)
+  end
+  return chunks
+end
+
+--- @param m string
+--- @param hl string
+local function echo_split(m, hl)
+  -- Trimming the message to fit the screen - 12, avoids the 'Press ENTER' prompt
+  local chunks = split_string(m, vim.o.columns - 12)
+  for _, chunk in ipairs(chunks) do
+    echo({ { chunk, hl } }, true, {})
+  end
+end
+
+--- @param m string
+--- @param ... any
 function Logger:info(m, ...)
   local m1 = m:format(...)
   messages[#messages + 1] = { 'info', self.ctx, m1 }
-  echo({ { mkpfx(self.ctx) .. ': ' .. m1, sev_to_hl.info } }, true, {})
+  echo_split(mkpfx(self.ctx) .. ': ' .. m1, sev_to_hl.info)
 end
 
----@param m string
----@param ... any
+--- @param m string
+--- @param ... any
 function Logger:warn(m, ...)
   local m1 = m:format(...)
   messages[#messages + 1] = { 'warn', self.ctx, m1 }
   echo({ { mkpfx(self.ctx) .. ' warning: ' .. m1, sev_to_hl.warn } }, true, {})
 end
 
----@param m string
----@param ... any
----@return string
+--- @param m string
+--- @param ... any
+--- @return string
 function Logger:error(m, ...)
   local m1 = m:format(...)
   messages[#messages + 1] = { 'error', self.ctx, m1 }
