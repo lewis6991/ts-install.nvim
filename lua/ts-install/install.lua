@@ -16,8 +16,11 @@ local function needs_update(lang)
   local info = parsers.install_info(lang)
   if info then
     local ok, revision_file = pcall(util.read_file, parsers.revision_file(lang))
-    local revision = parsers.target_revision(lang)
-    return not ok or revision ~= revision_file
+    -- Always update if:
+    -- - error reading revision file (missing)
+    -- - lang has no target revision (missing url)
+    -- - revision file does not match target revision
+    return not ok or revision_file ~= parsers.target_revision(lang)
   end
 
   -- No revision. Check the queries link to the same place
@@ -165,7 +168,9 @@ local function install_parser(lang, info, logger, generate)
 
   if not info.path then
     local revision = parsers.target_revision(lang)
-    util.write_file(parsers.revision_file(lang), revision)
+    if revision then
+      util.write_file(parsers.revision_file(lang), revision)
+    end
   end
 end
 

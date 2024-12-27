@@ -301,9 +301,12 @@ end
 
 --- @async
 --- @param lang string
---- @return string
+--- @return string?
 function M.target_revision(lang)
   local info = assert(M.install_info(lang))
+  if not info.url then
+    return
+  end
   if info.revision then
     return info.revision
   end
