@@ -1,5 +1,6 @@
 local config = require('ts-install.config').config
 local parsers = require('ts-install.parsers')
+local async = require('ts-install.async')
 local util = require('ts-install.util')
 local health = vim.health
 
@@ -85,6 +86,7 @@ local function config_health()
   end
 end
 
+--- @async
 local function parser_health()
   --- @type [string, string, string][]
   local error_collection = {}
@@ -126,6 +128,7 @@ local function parser_health()
     out[#out + 1] = '\n'
   end
 
+  async.main()
   health.info(
     ('%s\nLegend: (H)ighlight, (L)ocals, (F)olds, (I)ndents, In(J)ections'):format(
       table.concat(out)
@@ -153,7 +156,9 @@ end
 function M.check()
   install_health()
   config_health()
-  parser_health()
+  async.sync(function()
+    parser_health()
+  end)
 end
 
 return M
