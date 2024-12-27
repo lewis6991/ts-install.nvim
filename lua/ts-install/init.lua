@@ -21,8 +21,8 @@ end
 
 --- @param sources string[]
 local function do_auto_update(sources)
-  local stddata = vim.fn.stdpath('data') --[[@as string]]
-  local timestamp_path = vim.fs.joinpath(stddata, 'ts-install', 'update_timestamp')
+  local config = require('ts-install.config').config
+  local timestamp_path = vim.fs.joinpath(config.install_dir, 'update_timestamp')
   local timestamp_stat = vim.uv.fs_stat(timestamp_path)
 
   local needs_update = false
@@ -39,8 +39,11 @@ local function do_auto_update(sources)
   end
 
   if needs_update then
-    require('ts-install.install').update()
-    require('ts-install.util').write_file(timestamp_path, '')
+    require('ts-install.install').update(nil, nil, function()
+      local util = require('ts-install.util')
+      util.mkpath(config.install_dir)
+      util.write_file(timestamp_path, '')
+    end)
   end
 end
 
