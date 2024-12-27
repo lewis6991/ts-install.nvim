@@ -8,10 +8,11 @@ local function setup_auto_install()
       local lang = vim.treesitter.language.get_lang(ft) or ft
       --- @diagnostic disable-next-line: redundant-parameter
       require('ts-install.install').install(lang, { _auto = true }, function(did_not_install)
-        if did_not_install then
-          -- Need to pcall since 'FileType' can be triggered multiple times
-          -- per buffer
-          pcall(vim.treesitter.start, buf, lang)
+        if not did_not_install then
+          vim.schedule(function()
+            -- Retrigger FileType event to start treesitter.
+            vim.bo[buf].filetype = vim.bo[buf].filetype
+          end)
         end
       end)
     end,
