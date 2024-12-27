@@ -50,7 +50,8 @@ local M = {}
 local function needs_update(lang)
   local info = parsers.install_info(lang)
   if info and info.revision then
-    return info.revision ~= util.read_file(parsers.revision_file(lang))
+    local ok, revision_file = pcall(util.read_file, parsers.revision_file(lang))
+    return not ok or info.revision ~= revision_file
   end
 
   -- No revision. Check the queries link to the same place
