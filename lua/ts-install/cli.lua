@@ -14,9 +14,10 @@ local function subcmd_candidates(line)
     }
   elseif n > 2 then
     local subcmd = words[2]
-    if subcmd == 'install' or subcmd == 'install_from_grammar' then
+    if subcmd == 'install' then
       local langs = require('ts-install.parsers').get_available()
       table.insert(langs, 'all')
+      table.insert(langs, '--generate')
       return langs
     elseif subcmd == 'update' or subcmd == 'uninstall' then
       --- @type string[]
@@ -30,43 +31,54 @@ local function subcmd_candidates(line)
 end
 
 function M.complete(arglead, line)
+  local isflag = arglead:match('^%-') ~= nil
   return vim.tbl_filter(
     --- @param v string
     function(v)
-      return v:find(arglead) ~= nil
+      if isflag then
+        return vim.startswith(v, arglead)
+      end
+      return v:find(vim.pesc(arglead)) ~= nil
     end,
     subcmd_candidates(line) or {}
   )
+end
+
+--- @param args string[]
+--- @return string[] args
+--- @return table<string,true> opts
+local function extract_opts(args)
+  local args1 = {} --- @type string[]
+  local opts = {} --- @type table<string,true>
+
+  for _, v in ipairs(args) do
+    local opt = args1[1]:match('^%-%-([^ ]+)') or args1[1]:match('^%-([^ ]+)')
+    if opt then
+      opts[opt] = true
+    else
+      args1[#args1 + 1] = v
+    end
+  end
+
+  return args1, opts
 end
 
 -- create user commands
 --- @param args vim.api.keyset.create_user_command.command_args
 function M.run(args)
   local subcmd = args.fargs[1] --- @type string
-  local sub_fargs = vim.list_slice(args.fargs, 2)
-
-  local opts = {} --- @type table<string,true>
-
-  while sub_fargs[1] do
-    local name = sub_fargs[1]:match('^%-%-([^ ]+)') or sub_fargs[1]:match('^%-([^ ]+)')
-    if not name then
-      break
-    end
-    name = ({ g = 'generate' })[name] or name
-    opts[name] = true
-    sub_fargs = vim.list_slice(sub_fargs, 2)
-  end
+  local fargs, opts = extract_opts(vim.list_slice(args.fargs, 2))
 
   opts.force = opts.force or args.bang
 
   local installer = require('ts-install.install')
 
   if subcmd == 'install' then
-    installer.install(sub_fargs, opts)
+    installer.install(fargs, opts)
   elseif subcmd == 'update' then
-    installer.update(sub_fargs)
+    installer.update(fargs)
   elseif subcmd == 'uninstall' then
-    installer.uninstall(sub_fargs)
+    installer.uninstall(fargs)
   elseif subcmd == 'log' then
     require('ts-install.log').show()
   end
