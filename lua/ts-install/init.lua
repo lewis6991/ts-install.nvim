@@ -19,16 +19,6 @@ local function setup_auto_install()
   })
 end
 
---- @param langs string[]
-local function do_ensure_install(langs)
-  local parsers = require('ts-install.parsers')
-  local to_install = parsers.norm_languages(langs, { ignored = true, installed = true })
-
-  if #to_install > 0 then
-    require('ts-install.install').install(to_install, { force = true })
-  end
-end
-
 --- @param sources string[]
 local function do_auto_update(sources)
   local stddata = vim.fn.stdpath('data') --[[@as string]]
@@ -69,7 +59,7 @@ function M.setup(user_config)
   end
 
   if #config.ensure_install > 0 then
-    do_ensure_install(config.ensure_install)
+    require('ts-install.install').install(config.ensure_install, { _auto = true })
   end
 
   if config.auto_update then
