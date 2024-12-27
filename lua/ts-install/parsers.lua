@@ -1,5 +1,6 @@
 local fs = vim.fs
 local log = require('ts-install.log')
+local util = require('ts-install.util')
 
 --- @class ts_install.InstallInfo
 ---
@@ -69,7 +70,7 @@ function M.get_parser_info()
     for lang, parser_info in pairs(nvim_ts_parsers) do
       parser_info.install_info = parser_info.install_info or {}
       parser_info.install_info.queries_dir =
-        vim.fs.joinpath(get_nvim_treesitter_dir(), 'runtime', 'queries', lang)
+        fs.joinpath(get_nvim_treesitter_dir(), 'runtime', 'queries', lang)
     end
   end
 
@@ -87,6 +88,7 @@ function M.get_available()
   return languages
 end
 
+--- @async
 --- Normalize languages
 --- @param languages? string[]|string
 --- @param skip? { ignored?: boolean, missing?: boolean, installed?: boolean, dependencies?: boolean }
@@ -171,24 +173,26 @@ function M.norm_languages(languages, skip)
   return languages
 end
 
--- Returns the install path for parsers, parser info, and queries.
--- If the specified directory does not exist, it is created.
----@param dir_name string?
----@return string
+--- @async
+--- Returns the install path for parsers, parser info, and queries.
+--- If the specified directory does not exist, it is created.
+--- @param dir_name string?
+--- @return string
 local function install_dir(dir_name)
   local config = require('ts-install.config').config
   local dir = fs.joinpath(config.install_dir, dir_name)
 
-  if not vim.uv.fs_stat(dir) then
-    local ok, err = pcall(vim.fn.mkdir, dir, 'p', '0755')
-    if not ok then
+  if util.stat(dir) then
+    local err = util.mkpath(dir)
+    if err then
       log.error(err --[[@as string]])
     end
   end
   return dir
 end
 
----@return string[]
+--- @async
+--- @return string[]
 function M.installed()
   local installed = {} --- @type string[]
   for f in fs.dir(install_dir('queries')) do
@@ -211,18 +215,21 @@ function M.install_info(lang)
   return parser_info.install_info
 end
 
+--- @async
 --- @param lang string
 --- @return string
 function M.revision_file(lang)
   return fs.joinpath(install_dir('parser-info'), lang .. '.revision.txt')
 end
 
+--- @async
 --- @param lang string
 --- @return string
 function M.parser_file(lang)
   return fs.joinpath(install_dir('parser'), lang) .. '.so'
 end
 
+--- @async
 --- @param lang string
 --- @return string
 function M.queries_dir(lang)
@@ -290,6 +297,21 @@ end
 function M.ref(lang)
   local info = assert(M.install_info(lang))
   return info.revision or info.branch or 'main'
+end
+
+--- @async
+--- @param lang string
+--- @return string
+function M.target_revision(lang)
+  local info = assert(M.install_info(lang))
+  if info.revision then
+    return info.revision
+  end
+
+  local ref = info.branch or 'main'
+  local out = assert(util.system({ 'git', 'ls-remote', info.url, ref }).stdout)
+  local parts = vim.split(out, '\t')
+  return parts[1]
 end
 
 --- Reload the parser table and user modifications in case of update

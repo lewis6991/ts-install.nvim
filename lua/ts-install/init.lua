@@ -3,18 +3,17 @@ local M = {}
 local function setup_auto_install()
   vim.api.nvim_create_autocmd('FileType', {
     callback = function(args)
-      local parsers = require('ts-install.parsers')
-      local buf = args.buf --- @type integer
-      local ft = vim.bo[buf].filetype
+      local buf = args.buf
+      local ft = vim.bo[args.buf].filetype
       local lang = vim.treesitter.language.get_lang(ft) or ft
-      local to_install = parsers.norm_languages(lang, { installed = true, ignored = true })
-      if #to_install > 0 then
-        require('ts-install.install').install(to_install, nil, function()
+      --- @diagnostic disable-next-line: redundant-parameter
+      require('ts-install.install').install(lang, { _auto = true }, function(did_not_install)
+        if did_not_install then
           -- Need to pcall since 'FileType' can be triggered multiple times
           -- per buffer
           pcall(vim.treesitter.start, buf, lang)
-        end)
-      end
+        end
+      end)
     end,
   })
 end

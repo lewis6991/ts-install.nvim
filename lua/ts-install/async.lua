@@ -1,6 +1,6 @@
 local M = {}
 
----Executes a future with a callback when it is done
+--- Executes a future with a callback when it is done
 --- @param func function
 --- @param callback function
 --- @param ... unknown
@@ -24,7 +24,7 @@ local function execute(func, callback, ...)
 
     if coroutine.status(thread) == 'dead' then
       if callback then
-        callback(unpack(ret, 3, table.maxn(ret)))
+        callback(unpack(ret, 2, table.maxn(ret)))
       end
       return
     end
@@ -55,9 +55,9 @@ function M.wrap(argc, func)
   end
 end
 
----Use this to create a function which executes in an async context but
----called from a non-async context. Inherently this cannot return anything
----since it is non-blocking
+--- Use this to create a function which executes in an async context but
+--- called from a non-async context. Inherently this cannot return anything
+--- since it is non-blocking
 --- @generic F: function
 --- @param nargs integer
 --- @param func async F
@@ -66,6 +66,28 @@ function M.create(nargs, func)
   return function(...)
     local callback = select(nargs + 1, ...)
     execute(func, callback, unpack({ ... }, 1, nargs))
+  end
+end
+
+--- Use this to create a function which executes in an async context but
+--- called from a non-async context. Inherently this cannot return anything
+--- since it is non-blocking
+--- @param func async function
+--- @param timeout? integer
+function M.sync(func, timeout)
+  local done = false
+  local ret --- @type table
+  execute(func, function(...)
+    done = true
+    ret = { n = select('#', ...), ... }
+  end)
+
+  vim.wait(timeout or 10000, function()
+    return done
+  end, 100)
+
+  if ret then
+    return unpack(ret, 1, ret.n)
   end
 end
 
@@ -103,8 +125,8 @@ function M.join(n, interrupt_check, thunks)
   end, 1)
 end
 
----An async function that when called will yield to the Neovim scheduler to be
----able to call the API.
+--- An async function that when called will yield to the Neovim scheduler to be
+--- able to call the API.
 --- @type fun()
 M.main = M.wrap(1, vim.schedule)
 

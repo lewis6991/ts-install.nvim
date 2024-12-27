@@ -1,4 +1,4 @@
-local echo = vim.api.nvim_echo
+local echo = vim.schedule_wrap(vim.api.nvim_echo)
 
 -- TODO(lewis6991): write these out to a file
 local messages = {} --- @type {[1]: string, [2]: string?, [3]: string}[]
@@ -60,11 +60,15 @@ local function split_string(str, chunk_size)
   return chunks
 end
 
+local columns = vim.o.columns
+
 --- @param m string
 --- @param hl string
 local function echo_split(m, hl)
+  -- update columns if we can
+  columns = vim.in_fast_event() and columns or vim.o.columns
   -- Trimming the message to fit the screen - 12, avoids the 'Press ENTER' prompt
-  local chunks = split_string(m, vim.o.columns - 12)
+  local chunks = split_string(m, columns - 12)
   for _, chunk in ipairs(chunks) do
     echo({ { chunk, hl } }, true, {})
   end
@@ -91,7 +95,7 @@ end
 --- @return string
 function Logger:error(m, ...)
   local m1 = m:format(...)
-  messages[#messages + 1] = { 'error', self.ctx, m1 }
+  messages[#messages + 1] = { 'error', self.ctx, debug.traceback(m1) }
   echo({ { mkpfx(self.ctx) .. ' error: ' .. m1, sev_to_hl.error } }, true, {})
   return m1
 end
