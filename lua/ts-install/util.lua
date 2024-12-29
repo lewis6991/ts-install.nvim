@@ -40,7 +40,7 @@ M.realpath = async.wrap(2, uv.fs_realpath)
 function M.system(cmd, opts)
   local cwd = opts and opts.cwd or uv.cwd()
   log.trace('running job: (cwd=%s) %s', cwd, table.concat(cmd, ' '))
-  local r = async.wrap(3, vim.system)(cmd, opts) --[[@as vim.SystemCompleted]]
+  local r = async.wait(3, vim.system, cmd, opts) --[[@as vim.SystemCompleted]]
   async.main()
   if r.stdout and r.stdout ~= '' then
     log.trace('stdout -> %s', r.stdout)

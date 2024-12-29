@@ -2,58 +2,43 @@ local M = {}
 
 --- Executes a future with a callback when it is done
 --- @param func function
---- @param protected boolean
 --- @param callback? function
 --- @param ... unknown
-local function run(func, protected, callback, ...)
+local function run(func, callback, ...)
   local co = coroutine.create(func)
-
-  if protected then
-    assert(type(callback) == 'function')
-  end
 
   local function step(...)
     local ret = { coroutine.resume(co, ...) }
     local stat = ret[1]
 
     if not stat then
-      local co_err = ret[2] --- @type string
-      local err = debug.traceback(co, string.format('The async coroutine failed: %s', co_err))
-      if protected then
-        --- @cast callback -nil
-        callback(false, err)
-      else
-        error(err)
-      end
+      local err = ret[2] --- @type string
+      error(debug.traceback(co, ('The async coroutine failed: %s'):format(err)))
     end
 
     if coroutine.status(co) == 'dead' then
       if callback then
-        -- Include status if protected
-        callback(unpack(ret, protected and 1 or 2, table.maxn(ret)))
+        callback(unpack(ret, 2, table.maxn(ret)))
       end
       return
     end
 
-    --- @type integer, fun(...: any): any
-    local nargs, fn = ret[2], ret[3]
+    local fn = ret[2] --- @type fun(...: any): any
 
     assert(type(fn) == 'function', 'type error :: expected func')
 
-    --- @type any[]
-    local args = { unpack(ret, 4, table.maxn(ret)) }
-
-    args[nargs] = step
-    if protected then
-      --- @cast callback -nil
-      xpcall(fn, function(err)
-        callback(false, ('The wrapped function failed: %s'):format(err))
-      end, unpack(args, 1, nargs))
-    else
-      fn(unpack(args, 1, nargs))
-    end
+    -- Always run the wrapped functions in xpcall and re-raise the error in the
+    -- coroutine. This makes pcall work as normal.
+    xpcall(fn, function(err)
+      step(false, { err, debug.traceback() })
+    end, function(...)
+      step(true, { n = select('#', ...), ... })
+    end)
   end
 
+  -- The first invocation of the coroutine is the entry to `func`, so pass
+  -- `...`. Subsequent invocations are resumed into wrapped functions which
+  -- expects a status and the return values (callback arguments).
   step(...)
 end
 
@@ -62,29 +47,20 @@ end
 --- @param ... any
 --- @return any ...
 function M.wait(argc, func, ...)
-  -- Always run the wrapped functions in xpcall and re-raise the error in the
-  -- coroutine. This makes pcall work as normal.
-  local function pfunc(...)
-    local args = { ... } --- @type any[]
-    local cb = args[argc]
-    args[argc] = function(...)
-      cb(true, ...)
-    end
-    xpcall(func, function(err)
-      cb(false, err, debug.traceback())
-    end, unpack(args, 1, argc))
-  end
+  local args = { n = select('#', ...), ... }
 
-  local ret = { coroutine.yield(argc, pfunc, ...) }
+  local ok, ret = coroutine.yield(function(cb)
+    args[argc] = cb
+    return func(unpack(args, 1, math.max(argc, args.n)))
+  end)
 
-  local ok = ret[1]
   if not ok then
     --- @type string, string
     local err, traceback = ret[2], ret[3]
-    error(string.format('Wrapped function failed: %s\n%s', err, traceback))
+    error(('Wrapped function failed: %s\n%s'):format(err, traceback))
   end
 
-  return unpack(ret, 2, table.maxn(ret))
+  return unpack(ret, 1, assert(ret.n))
 end
 
 --- Creates an async function with a callback style function.
@@ -127,12 +103,12 @@ function M.create(argc_or_func, func)
   return function(...)
     local callback = argc and select(argc + 1, ...) or nil
     assert(not callback or type(callback) == 'function')
-    return run(func, false, callback, unpack({ ... }, 1, argc))
+    return run(func, callback, unpack({ ... }, 1, argc))
   end
 end
 
 function M.run(func, ...)
-  return run(func, false, nil, ...)
+  return run(func, nil, ...)
 end
 
 --- Use this to create a function which executes in an async context but
@@ -143,7 +119,7 @@ end
 function M.sync(func, timeout)
   local done = false
   local ret --- @type table
-  run(func, false, function(...)
+  run(func, function(...)
     done = true
     ret = { n = select('#', ...), ... }
   end)
@@ -162,7 +138,7 @@ end
 --- @param thunks function[]
 --- @return any
 function M.join(n, interrupt_check, thunks)
-  return coroutine.yield(1, function(finish)
+  return M.wait(1, function(finish)
     if #thunks == 0 then
       return finish()
     end
@@ -188,7 +164,7 @@ function M.join(n, interrupt_check, thunks)
     for i = 1, math.min(n, #thunks) do
       thunks[i](cb)
     end
-  end, 1)
+  end)
 end
 
 --- An async function that when called will yield to the Neovim scheduler to be
