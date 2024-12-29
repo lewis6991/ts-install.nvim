@@ -52,7 +52,7 @@ local function extract_opts(args)
   local opts = {} --- @type table<string,true>
 
   for _, v in ipairs(args) do
-    local opt = args1[1]:match('^%-%-([^ ]+)') or args1[1]:match('^%-([^ ]+)')
+    local opt = v:match('^%-%-([^ ]+)') or v:match('^%-([^ ]+)')
     if opt then
       opts[opt] = true
     else
