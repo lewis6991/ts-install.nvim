@@ -252,6 +252,7 @@ end
 --- @field skip? table
 --- @field package _auto? true
 
+--- @async
 --- Install a parser
 --- @param languages string[]
 --- @param options? ts_install.install.InstallOpts
