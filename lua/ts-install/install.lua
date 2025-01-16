@@ -182,7 +182,7 @@ local function install_lang(lang, generate)
   local logger = log.new('install/' .. lang)
 
   local install_info = parsers.install_info(lang)
-  if install_info then
+  if install_info and (install_info.url or install_info.path) then
     local err = install_parser(lang, install_info, logger, generate)
     if err then
       return err
