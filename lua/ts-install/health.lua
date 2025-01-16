@@ -156,9 +156,11 @@ end
 function M.check()
   install_health()
   config_health()
-  async.sync(function()
-    parser_health()
-  end)
+  async
+    .run(function()
+      parser_health()
+    end)
+    :wait()
 end
 
 return M

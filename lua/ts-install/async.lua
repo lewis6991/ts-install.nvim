@@ -1,66 +1,190 @@
 local M = {}
 
---- Executes a future with a callback when it is done
---- @param func function
---- @param callback? function
---- @param ... unknown
-local function run(func, callback, ...)
-  local co = coroutine.create(func)
+--- @class ts.AsyncTask.Handle
+--- @field close fun(self, callback: fun())
 
-  local function step(...)
-    local ret = { coroutine.resume(co, ...) }
-    local stat = ret[1]
+--- @class ts.AsyncTask
+--- @field private _thread thread
+--- @field private _callbacks function[]
+--- @field private _obj? ts.AsyncTask.Handle
+--- @field private _closing? true
+--- @field err? any
+--- @field result? any[]
+local Task = {}
 
-    if not stat then
-      local err = ret[2] --- @type string
-      error(debug.traceback(co, ('The async coroutine failed: %s'):format(err)))
-    end
+--- @return ts.AsyncTask
+function Task.new(func)
+  return setmetatable({
+    _thread = coroutine.create(func),
+    _callbacks = {},
+  }, { __index = Task })
+end
 
-    if coroutine.status(co) == 'dead' then
-      if callback then
-        callback(unpack(ret, 2, table.maxn(ret)))
-      end
-      return
-    end
+--- @package
+--- @param ... any
+function Task:_resume(...)
+  local ret = { coroutine.resume(self._thread, ...) }
+  local stat = ret[1]
 
+  if not stat then
+    local err = ret[2] --- @type string
+    -- REVISIT lewrus01 (16/01/25): add debug.traceback(task.thread) ?
+    self:_complete(err)
+  elseif coroutine.status(self._thread) == 'dead' then
+    table.remove(ret, 1)
+    self:_complete(nil, ret)
+  else
     local fn = ret[2] --- @type fun(...: any): any
 
     assert(type(fn) == 'function', 'type error :: expected func')
 
-    -- Always run the wrapped functions in xpcall and re-raise the error in the
-    -- coroutine. This makes pcall work as normal.
-    xpcall(fn, function(err)
-      step(false, { err, debug.traceback() })
-    end, function(...)
-      step(true, { n = select('#', ...), ... })
+    local ok, obj_or_err = pcall(fn, function(...)
+      self:_resume(...)
+    end)
+
+    if ok then
+      self._obj = obj_or_err
+    else
+      self:_complete(obj_or_err)
+    end
+  end
+end
+
+--- @private
+function Task:_completed()
+  return (self.err or self.result) ~= nil
+end
+
+--- @param callback fun(err?: any, ret?: any[])
+function Task:await(callback)
+  if self:_completed() then
+    callback(self.err, self.result)
+  else
+    self._callbacks[#self._callbacks + 1] = callback
+  end
+end
+
+--- @private
+function Task:_error(err)
+  error(('Async task with %s error: %s'):format(self._thread, err), 2)
+end
+
+--- @private
+function Task:_on_close()
+  for _, cb in ipairs(self._callbacks) do
+    cb(self.err, self.result)
+  end
+end
+
+--- @private
+--- @param err? any
+--- @param result? any[]
+--- @param callback? fun(err?: any, ret?: any[])
+function Task:_complete(err, result, callback)
+  if self:_completed() then
+    self:_error('Already finished')
+  end
+
+  if callback then
+    self:await(function()
+      callback()
     end)
   end
 
-  -- The first invocation of the coroutine is the entry to `func`, so pass
-  -- `...`. Subsequent invocations are resumed into wrapped functions which
-  -- expects a status and the return values (callback arguments).
-  step(...)
+  self.err = err
+  self.result = result
+
+  if self._obj and self._obj.close then
+    self._closing = true
+    -- REVISIT lewrus01 (16/01/25): add a timer to ensure callback is called
+    self._obj:close(function()
+      -- If we finish whilst waiting for close to finish
+      -- then do not call _on_done again
+      if not self:_completed() then
+        self:_on_close()
+      end
+    end)
+  else
+    self:_on_close()
+  end
+end
+
+--- @return 'active' | 'completed' | 'closing'
+function Task:status()
+  if self._closing then
+    return 'closing'
+  elseif self:_completed() then
+    return 'completed'
+  else
+    return 'active'
+  end
+end
+
+--- @param callback fun(err?: any, ret?: any[])
+function Task:close(callback)
+  if self._closing then
+    self:_error('Already closing')
+  elseif self:_completed() then
+    self:_error('Already finished')
+  else
+    self:_complete('closed', nil, callback)
+  end
+end
+
+--- @param timeout? integer
+--- @return any ...
+function Task:wait(timeout)
+  if not vim.wait(timeout or 10000, function()
+    return self:_completed()
+  end) then
+    error('timeout')
+  end
+
+  if self.err then
+    error(self.err)
+  end
+
+  return unpack(self.result, 1, self.result.n)
+end
+
+--- Executes a future with a callback when it is done
+--- @param func function
+--- @param ... any
+--- @return ts.AsyncTask
+function M.run(func, ...)
+  local task = Task.new(func)
+  task:_resume(...)
+  return task
+end
+
+--- @param task ts.AsyncTask
+local function await_task(task)
+  return coroutine.yield(function(cb)
+    task:await(cb)
+  end)
 end
 
 --- @param argc integer
 --- @param func function
 --- @param ... any
 --- @return any ...
-function M.wait(argc, func, ...)
-  local args = { n = select('#', ...), ... }
-
-  local ok, ret = coroutine.yield(function(cb)
+local function await_cbfun(argc, func, ...)
+  local argn = math.max(argc, select('#', ...))
+  local args = { ... }
+  return coroutine.yield(function(cb)
     args[argc] = cb
-    return func(unpack(args, 1, math.max(argc, args.n)))
+    return func(unpack(args, 1, argn))
   end)
+end
 
-  if not ok then
-    --- @type string, string
-    local err, traceback = ret[2], ret[3]
-    error(('Wrapped function failed: %s\n%s'):format(err, traceback))
+--- @overload fun(task: ts.AsyncTask): any
+--- @overload fun(argc: integer, func: function, ...: any): any
+function M.await(...)
+  if type(select(1, ...)) == 'number' then
+    return await_cbfun(...)
+  else
+    return await_task(...)
   end
-
-  return unpack(ret, 1, assert(ret.n))
 end
 
 --- Creates an async function with a callback style function.
@@ -72,7 +196,7 @@ function M.wrap(argc, func)
   assert(type(func) == 'function')
   assert(type(argc) == 'number')
   return function(...)
-    return M.wait(argc, func, ...)
+    return M.await(argc, func, ...)
   end
 end
 
@@ -102,50 +226,30 @@ function M.create(argc_or_func, func)
 
   return function(...)
     local callback = argc and select(argc + 1, ...) or nil
-    assert(not callback or type(callback) == 'function')
-    return run(func, callback, unpack({ ... }, 1, argc))
-  end
-end
-
-function M.run(func, ...)
-  return run(func, nil, ...)
-end
-
---- Use this to create a function which executes in an async context but
---- called from a non-async context. Inherently this cannot return anything
---- since it is non-blocking
---- @param func async function
---- @param timeout? integer
-function M.sync(func, timeout)
-  local done = false
-  local ret --- @type table
-  run(func, function(...)
-    done = true
-    ret = { n = select('#', ...), ... }
-  end)
-
-  vim.wait(timeout or 10000, function()
-    return done
-  end, 100)
-
-  if ret then
-    return unpack(ret, 1, ret.n)
-  end
-end
-
---- @param n integer max number of concurrent jobs
---- @param interrupt_check? function
---- @param thunks function[]
---- @return any
-function M.join(n, interrupt_check, thunks)
-  return M.wait(1, function(finish)
-    if #thunks == 0 then
-      return finish()
+    local task = M.run(func, unpack({ ... }, 1, argc))
+    if callback then
+      assert(type(callback) == 'function')
+      task:await(function(err, result)
+        if err then
+          error(err)
+        end
+        callback(unpack(result, 1, result.n))
+      end)
     end
+    return task
+  end
+end
 
-    local remaining = { select(n + 1, unpack(thunks)) }
-    local to_go = #thunks
+--- @async
+--- @param tasks ts.AsyncTask[]
+--- @return any
+function M.join(tasks)
+  if #tasks == 0 then
+    return
+  end
 
+  return M.await(1, function(finish)
+    local to_go = #tasks
     local ret = {} --- @type any[]
 
     local function cb(...)
@@ -153,16 +257,11 @@ function M.join(n, interrupt_check, thunks)
       to_go = to_go - 1
       if to_go == 0 then
         finish(ret)
-      elseif not interrupt_check or not interrupt_check() then
-        if #remaining > 0 then
-          local next_task = table.remove(remaining)
-          next_task(cb)
-        end
       end
     end
 
-    for i = 1, math.min(n, #thunks) do
-      thunks[i](cb)
+    for _, task in ipairs(tasks) do
+      task:await(cb)
     end
   end)
 end

@@ -5,8 +5,6 @@ local log = require('ts-install.log')
 local util = require('ts-install.util')
 local parsers = require('ts-install.parsers')
 
-local max_jobs = 10
-
 local M = {}
 
 --- @async
@@ -260,10 +258,10 @@ end
 local function install(languages, options, _callback)
   options = options or {}
 
-  local tasks = {} --- @type fun()[]
+  local tasks = {} --- @type ts.AsyncTask[]
   local done = 0
   for _, lang in ipairs(languages) do
-    tasks[#tasks + 1] = async.create(0, function()
+    tasks[#tasks + 1] = async.run(function()
       async.main()
       local status = try_install_lang(lang, options.generate)
       if status ~= 'failed' then
@@ -272,7 +270,7 @@ local function install(languages, options, _callback)
     end)
   end
 
-  async.join(max_jobs, nil, tasks)
+  async.join(tasks)
   if #tasks > 1 then
     async.main()
     log.info('Installed %d/%d languages', done, #tasks)
@@ -367,7 +365,7 @@ M.uninstall = async.create(2, function(languages, _options, _callback)
     end
   end
 
-  async.join(max_jobs, nil, tasks)
+  async.join(tasks)
   if #tasks > 1 then
     async.main()
     log.info('Uninstalled %d/%d languages', done, #tasks)
