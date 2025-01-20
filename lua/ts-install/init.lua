@@ -6,6 +6,9 @@ local function setup_auto_install()
       local buf = args.buf
       local ft = vim.bo[args.buf].filetype
       local lang = vim.treesitter.language.get_lang(ft) or ft
+      if lang == '' then
+        return
+      end
       --- @diagnostic disable-next-line: redundant-parameter
       require('ts-install.install').install(lang, { _auto = true }, function(did_not_install)
         if not did_not_install then
