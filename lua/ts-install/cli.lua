@@ -21,7 +21,7 @@ local function subcmd_candidates(line)
       return langs
     elseif subcmd == 'update' or subcmd == 'uninstall' then
       --- @type string[]
-      local langs = require('ts-install.async').run(function()
+      local langs = require('ts-install.async').arun(function()
         return require('ts-install.parsers').installed()
       end):wait()
       table.insert(langs, 'all')

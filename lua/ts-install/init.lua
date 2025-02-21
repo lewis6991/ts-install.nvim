@@ -10,7 +10,8 @@ local function setup_auto_install()
         return
       end
       --- @diagnostic disable-next-line: redundant-parameter
-      require('ts-install.install').install(lang, { _auto = true }, function(did_not_install)
+      require('ts-install.install').install(lang, { _auto = true }):await(function(err, did_not_install)
+        assert(not err, err)
         if not did_not_install then
           vim.schedule(function()
             -- Retrigger FileType event to start treesitter.
@@ -43,8 +44,8 @@ local function do_auto_update(sources)
 
   if needs_update then
     local async = require('ts-install.async')
-    async.run(function()
-      async.await(3, require('ts-install.install').update)
+    async.arun(function()
+      async.await(require('ts-install.install').update())
       local util = require('ts-install.util')
       util.mkpath(config.install_dir)
       util.write_file(timestamp_path, '')

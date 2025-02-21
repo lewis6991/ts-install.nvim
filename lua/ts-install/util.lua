@@ -5,33 +5,33 @@ local log = require('ts-install.log')
 local async = require('ts-install.async')
 
 --- @type fun(path: string, mode: integer): string?
-local mkdir = async.wrap(3, uv.fs_mkdir)
+local mkdir = async.awrap(3, uv.fs_mkdir)
 
 --- @type fun(path: string): string?
-local unlink = async.wrap(2, uv.fs_unlink)
+local unlink = async.awrap(2, uv.fs_unlink)
 
 --- @type fun(path: string): string?
-local rmdir = async.wrap(2, uv.fs_rmdir)
+local rmdir = async.awrap(2, uv.fs_rmdir)
 
 --- @type fun(path: string): string?, uv.fs_stat.result?
-local lstat = async.wrap(2, uv.fs_lstat)
+local lstat = async.awrap(2, uv.fs_lstat)
 
 local M = {}
 
 --- @type fun(path: string): string?, uv.fs_stat.result?
-M.stat = async.wrap(2, uv.fs_stat)
+M.stat = async.awrap(2, uv.fs_stat)
 
 --- @type fun(path: string, new_path: string, flags?: table): string?
-M.copyfile = async.wrap(4, uv.fs_copyfile)
+M.copyfile = async.awrap(4, uv.fs_copyfile)
 
 --- @type fun(path: string, new_path: string): string?
-M.rename = async.wrap(3, uv.fs_rename)
+M.rename = async.awrap(3, uv.fs_rename)
 
 --- @type fun(path: string, new_path: string): string?
-M.link = async.wrap(3, uv.fs_link)
+M.link = async.awrap(3, uv.fs_link)
 
 --- @type fun(path: string): string?, string?
-M.realpath = async.wrap(2, uv.fs_realpath)
+M.realpath = async.awrap(2, uv.fs_realpath)
 
 --- @async
 --- @param cmd string[]
@@ -41,7 +41,7 @@ function M.system(cmd, opts)
   local cwd = opts and opts.cwd or uv.cwd()
   log.trace('running job: (cwd=%s) %s', cwd, table.concat(cmd, ' '))
   local r = async.await(3, vim.system, cmd, opts) --[[@as vim.SystemCompleted]]
-  async.main()
+  async.schedule()
   if r.stdout and r.stdout ~= '' then
     log.trace('stdout -> %s', r.stdout)
   end
@@ -88,7 +88,7 @@ end
 function M.remove(name)
   local err, stat = lstat(name)
   if err or not stat then
-    async.main()
+    async.schedule()
     return
   end
 
@@ -101,7 +101,7 @@ function M.remove(name)
   end
 
   unlink(name)
-  async.main()
+  async.schedule()
 end
 
 return M

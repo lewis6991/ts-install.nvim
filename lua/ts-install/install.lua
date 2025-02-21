@@ -63,7 +63,7 @@ local function download_parser(logger, lang, output_dir)
   do -- Create tmp dir
     logger:debug('Creating temporary directory: %s', tmp)
     local err = util.mkpath(tmp)
-    async.main()
+    async.schedule()
     if err then
       return logger:error('Could not create %s: %s', tmp, err)
     end
@@ -86,7 +86,7 @@ local function download_parser(logger, lang, output_dir)
     local extracted = fs.joinpath(tmp, parsers.project_name(lang) .. '-' .. dir_rev)
     logger:info('Moving %s to %s/...', extracted, output_dir)
     local err = util.rename(extracted, output_dir)
-    async.main()
+    async.schedule()
     if err then
       return logger:error('Could not rename temp: %s', err)
     end
@@ -158,7 +158,7 @@ local function install_parser(lang, info, logger, generate)
 
     local parser_lib_name = fs.joinpath(compile_dir, 'parser.so')
     local err = util.copyfile(parser_lib_name, install_path)
-    async.main()
+    async.schedule()
     if err then
       return logger:error('Error during parser installation: %s', err)
     end
@@ -198,7 +198,7 @@ local function install_lang(lang, generate)
       local dest = fs.joinpath(queries, f)
       util.link(src, dest)
     end
-    async.main()
+    async.schedule()
 
     if err then
       return logger:error(err)
@@ -258,11 +258,11 @@ end
 local function install(languages, options, _callback)
   options = options or {}
 
-  local tasks = {} --- @type ts.AsyncTask[]
+  local tasks = {} --- @type async.Task[]
   local done = 0
   for _, lang in ipairs(languages) do
-    tasks[#tasks + 1] = async.run(function()
-      async.main()
+    tasks[#tasks + 1] = async.arun(function()
+      async.schedule()
       local status = try_install_lang(lang, options.generate)
       if status ~= 'failed' then
         done = done + 1
@@ -272,15 +272,14 @@ local function install(languages, options, _callback)
 
   async.join(tasks)
   if #tasks > 1 then
-    async.main()
+    async.schedule()
     log.info('Installed %d/%d languages', done, #tasks)
   end
 end
 
 --- @param languages string[]|string
 --- @param options? ts_install.install.InstallOpts
---- @param _callback? fun()
-M.install = async.create(2, function(languages, options, _callback)
+M.install = async.async(function(languages, options)
   parsers.reload()
   if not languages or #languages == 0 then
     languages = 'all'
@@ -303,7 +302,7 @@ end)
 --- @param languages? string[]|string
 --- @param _options? ts_install.install.UpdateOpts
 --- @param _callback? function
-M.update = async.create(2, function(languages, _options, _callback)
+M.update = async.async(function(languages, _options, _callback)
   parsers.reload()
   if not languages or #languages == 0 then
     languages = 'all'
@@ -343,20 +342,19 @@ end
 
 --- @param languages string[]|string
 --- @param _options? ts_install.install.UpdateOpts
---- @param _callback? fun()
-M.uninstall = async.create(2, function(languages, _options, _callback)
+M.uninstall = async.async(function(languages, _options)
   languages = parsers.norm_languages(languages or 'all', { missing = true, dependencies = true })
 
   local installed = parsers.installed()
 
-  local tasks = {} --- @type fun()[]
+  local tasks = {} --- @type async.Task[]
   local done = 0
   for _, lang in ipairs(languages) do
     local logger = log.new('uninstall/' .. lang)
     if not vim.list_contains(installed, lang) then
       log.warn('Parser for ' .. lang .. ' is is not managed by ts')
     else
-      tasks[#tasks + 1] = async.create(0, function()
+      tasks[#tasks + 1] = async.arun(function()
         local err = uninstall_lang(logger, lang)
         if not err then
           done = done + 1
@@ -367,7 +365,7 @@ M.uninstall = async.create(2, function(languages, _options, _callback)
 
   async.join(tasks)
   if #tasks > 1 then
-    async.main()
+    async.schedule()
     log.info('Uninstalled %d/%d languages', done, #tasks)
   end
 end)

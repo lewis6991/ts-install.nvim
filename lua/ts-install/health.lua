@@ -86,8 +86,7 @@ local function config_health()
   end
 end
 
---- @async
-local function parser_health()
+local parser_health = async.async(function()
   --- @type [string, string, string][]
   local error_collection = {}
 
@@ -128,7 +127,7 @@ local function parser_health()
     out[#out + 1] = '\n'
   end
 
-  async.main()
+  async.schedule()
   health.info(
     ('%s\nLegend: (H)ighlight, (L)ocals, (F)olds, (I)ndents, In(J)ections'):format(
       table.concat(out)
@@ -151,16 +150,12 @@ local function parser_health()
       health.error(table.concat(lines, ''))
     end
   end
-end
+end)
 
 function M.check()
   install_health()
   config_health()
-  async
-    .run(function()
-      parser_health()
-    end)
-    :wait()
+  parser_health():wait()
 end
 
 return M
