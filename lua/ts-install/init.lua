@@ -61,7 +61,9 @@ function M.setup(user_config)
 
   local config = ts_config.config
 
-  vim.opt.runtimepath:append(config.install_dir)
+  -- Need to prepend install dir to runtimepath so that the parsers get priority
+  -- over the ones provided by core.
+  vim.opt.runtimepath:prepend(config.install_dir)
 
   if config.auto_install then
     setup_auto_install()
