@@ -1,7 +1,9 @@
+local async = require('ts-install.async')
+
 local M = {}
 
---- @async
 --- @param line string
+--- @return string[]
 local function subcmd_candidates(line)
   local words = vim.split(line, '%s+')
   local n = #words
@@ -15,19 +17,18 @@ local function subcmd_candidates(line)
   elseif n > 2 then
     local subcmd = words[2]
     if subcmd == 'install' then
-      local langs = require('ts-install.parsers').get_available()
-      table.insert(langs, 'all')
-      table.insert(langs, '--generate')
-      return langs
+      local r = require('ts-install.parsers').get_available()
+      r[#r + 1] = 'all'
+      r[#r + 1] = '--generate'
+      return r
     elseif subcmd == 'update' or subcmd == 'uninstall' then
       --- @type string[]
-      local langs = require('ts-install.async').arun(function()
-        return require('ts-install.parsers').installed()
-      end):wait()
-      table.insert(langs, 'all')
-      return langs
+      local r = async.run(require('ts-install.parsers').installed):wait()
+      r[#r + 1] = 'all'
+      return r
     end
   end
+  return {}
 end
 
 function M.complete(arglead, line)
@@ -40,7 +41,7 @@ function M.complete(arglead, line)
       end
       return v:find(vim.pesc(arglead)) ~= nil
     end,
-    subcmd_candidates(line) or {}
+    subcmd_candidates(line)
   )
 end
 
@@ -63,25 +64,26 @@ local function extract_opts(args)
   return args1, opts
 end
 
--- create user commands
 --- @param args vim.api.keyset.create_user_command.command_args
 function M.run(args)
-  local subcmd = args.fargs[1] --- @type string
+  local subcmd = args.fargs[1]
   local fargs, opts = extract_opts(vim.list_slice(args.fargs, 2))
 
   opts.force = opts.force or args.bang
 
-  local installer = require('ts-install.install')
+  async.run(function()
+    local installer = require('ts-install.install')
 
-  if subcmd == 'install' then
-    installer.install(fargs, opts)
-  elseif subcmd == 'update' then
-    installer.update(fargs)
-  elseif subcmd == 'uninstall' then
-    installer.uninstall(fargs)
-  elseif subcmd == 'log' then
-    require('ts-install.log').show()
-  end
+    if subcmd == 'install' then
+      installer.install(fargs, opts --[[@as ts_install.install.InstallOpts]])
+    elseif subcmd == 'update' then
+      installer.update(fargs)
+    elseif subcmd == 'uninstall' then
+      installer.uninstall(fargs)
+    elseif subcmd == 'log' then
+      require('ts-install.log').show()
+    end
+  end)
 end
 
 return M

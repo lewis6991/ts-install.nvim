@@ -63,7 +63,7 @@ local function download_parser(logger, lang, output_dir)
   do -- Create tmp dir
     logger:debug('Creating temporary directory: %s', tmp)
     local err = util.mkpath(tmp)
-    async.schedule()
+    async.await(vim.schedule)
     if err then
       return logger:error('Could not create %s: %s', tmp, err)
     end
@@ -86,7 +86,7 @@ local function download_parser(logger, lang, output_dir)
     local extracted = fs.joinpath(tmp, parsers.project_name(lang) .. '-' .. dir_rev)
     logger:info('Moving %s to %s/...', extracted, output_dir)
     local err = util.rename(extracted, output_dir)
-    async.schedule()
+    async.await(vim.schedule)
     if err then
       return logger:error('Could not rename temp: %s', err)
     end
@@ -102,6 +102,10 @@ end
 --- @param generate? boolean
 --- @return string? err
 local function install_parser(lang, info, logger, generate)
+  if vim.fn.executable('tree-sitter') == 0 then
+    return log.error('tree-sitter cli is not available')
+  end
+
   if not info.path and not info.url then
     return log.error('No url or path for %s', lang)
   end
@@ -158,7 +162,7 @@ local function install_parser(lang, info, logger, generate)
 
     local parser_lib_name = fs.joinpath(compile_dir, 'parser.so')
     local err = util.copyfile(parser_lib_name, install_path)
-    async.schedule()
+    async.await(vim.schedule)
     if err then
       return logger:error('Error during parser installation: %s', err)
     end
@@ -198,7 +202,7 @@ local function install_lang(lang, generate)
       local dest = fs.joinpath(queries, f)
       util.link(src, dest)
     end
-    async.schedule()
+    async.await(vim.schedule)
 
     if err then
       return logger:error(err)
@@ -258,28 +262,31 @@ end
 local function install(languages, options, _callback)
   options = options or {}
 
-  local tasks = {} --- @type async.Task[]
+  local tasks = {} --- @type ts-install.async.Task[]
   local done = 0
   for _, lang in ipairs(languages) do
-    tasks[#tasks + 1] = async.arun(function()
-      async.schedule()
-      local status = try_install_lang(lang, options.generate)
-      if status ~= 'failed' then
-        done = done + 1
-      end
-    end)
+    tasks[#tasks + 1] = async
+      .run(function()
+        async.await(vim.schedule)
+        local status = try_install_lang(lang, options.generate)
+        if status ~= 'failed' then
+          done = done + 1
+        end
+      end)
+      :raise_on_error()
   end
 
-  async.join(tasks)
+  async.await_all(tasks)
   if #tasks > 1 then
-    async.schedule()
+    async.await(vim.schedule)
     log.info('Installed %d/%d languages', done, #tasks)
   end
 end
 
+--- @async
 --- @param languages string[]|string
 --- @param options? ts_install.install.InstallOpts
-M.install = async.async(function(languages, options)
+function M.install(languages, options)
   parsers.reload()
   if not languages or #languages == 0 then
     languages = 'all'
@@ -288,21 +295,22 @@ M.install = async.async(function(languages, options)
   if options and options._auto then
     languages = parsers.norm_languages(languages, { installed = true, ignored = true })
     if #languages == 0 then
-      return true
+      return
     end
   else
     languages = parsers.norm_languages(languages, options and options.skip)
   end
 
   install(languages, options)
-end)
+end
 
 --- @class ts_install.install.UpdateOpts
 
+--- @async
 --- @param languages? string[]|string
 --- @param _options? ts_install.install.UpdateOpts
 --- @param _callback? function
-M.update = async.async(function(languages, _options, _callback)
+function M.update(languages, _options, _callback)
   parsers.reload()
   if not languages or #languages == 0 then
     languages = 'all'
@@ -315,7 +323,7 @@ M.update = async.async(function(languages, _options, _callback)
   else
     log.info('All parsers are up-to-date')
   end
-end)
+end
 
 --- @async
 --- @param logger ts_install.Logger
@@ -340,34 +348,37 @@ local function uninstall_lang(logger, lang)
   logger:info('Language uninstalled%s', had_err and ' (with errors, see ":TS log")' or '')
 end
 
+--- @async
 --- @param languages string[]|string
 --- @param _options? ts_install.install.UpdateOpts
-M.uninstall = async.async(function(languages, _options)
+function M.uninstall(languages, _options)
   languages = parsers.norm_languages(languages or 'all', { missing = true, dependencies = true })
 
   local installed = parsers.installed()
 
-  local tasks = {} --- @type async.Task[]
+  local tasks = {} --- @type ts-install.async.Task[]
   local done = 0
   for _, lang in ipairs(languages) do
     local logger = log.new('uninstall/' .. lang)
     if not vim.list_contains(installed, lang) then
       log.warn('Parser for ' .. lang .. ' is is not managed by ts')
     else
-      tasks[#tasks + 1] = async.arun(function()
-        local err = uninstall_lang(logger, lang)
-        if not err then
-          done = done + 1
-        end
-      end)
+      tasks[#tasks + 1] = async
+        .run(function()
+          local err = uninstall_lang(logger, lang)
+          if not err then
+            done = done + 1
+          end
+        end)
+        :raise_on_error()
     end
   end
 
-  async.join(tasks)
+  async.await_all(tasks)
   if #tasks > 1 then
-    async.schedule()
+    async.await(vim.schedule)
     log.info('Uninstalled %d/%d languages', done, #tasks)
   end
-end)
+end
 
 return M

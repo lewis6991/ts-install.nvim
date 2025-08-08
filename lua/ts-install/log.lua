@@ -50,7 +50,7 @@ function Logger:debug(m, ...)
 end
 
 --- @param str string
---- @param chunk_size number
+--- @param chunk_size integer
 --- @return string[]
 local function split_string(str, chunk_size)
   local chunks = {} --- @type string[]
@@ -118,7 +118,9 @@ function M.show()
     local hl = sev_to_hl[sev]
     local text = ctx and string.format('%s(%s): %s', sev, ctx, msg)
       or string.format('%s: %s', sev, msg)
-    echo({ { text, hl } }, false, {})
+    -- Do not use vim.schedule_wrap here as we want to show all the messages
+    -- without prompts between them
+    vim.api.nvim_echo({ { text, hl } }, false, {})
   end
 end
 

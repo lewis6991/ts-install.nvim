@@ -9,16 +9,22 @@ local function setup_auto_install()
       if lang == '' then
         return
       end
-      --- @diagnostic disable-next-line: redundant-parameter
-      require('ts-install.install').install(lang, { _auto = true }):await(function(err, did_not_install)
-        assert(not err, err)
-        if not did_not_install then
+      local async = require('ts-install.async')
+
+      async
+        .run(require('ts-install.install').install, lang, { _auto = true })
+        :wait(function(err, did_not_install)
+          assert(not err, err)
+          if not did_not_install then
+            return
+          end
           vim.schedule(function()
-            -- Retrigger FileType event to start treesitter.
-            vim.bo[buf].filetype = vim.bo[buf].filetype
+            if vim.api.nvim_buf_is_valid(buf) then
+              -- Retrigger FileType event to start treesitter.
+              vim.bo[buf].filetype = vim.bo[buf].filetype
+            end
           end)
-        end
-      end)
+        end)
     end,
   })
 end
@@ -44,7 +50,7 @@ local function do_auto_update(sources)
 
   if needs_update then
     local async = require('ts-install.async')
-    async.arun(function()
+    async.run(function()
       async.await(require('ts-install.install').update())
       local util = require('ts-install.util')
       util.mkpath(config.install_dir)
@@ -70,7 +76,8 @@ function M.setup(user_config)
   end
 
   if #config.ensure_install > 0 then
-    require('ts-install.install').install(config.ensure_install, { _auto = true })
+    local async = require('ts-install.async')
+    async.run(require('ts-install.install').install, config.ensure_install, { _auto = true })
   end
 
   if config.auto_update then

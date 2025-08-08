@@ -10,7 +10,7 @@ local NVIM_TREESITTER_MINIMUM_ABI = 13
 local TREE_SITTER_MIN_VER = { 0, 22, 6 }
 
 --- @param name string
---- @return {path:string,version:string,out:string}?
+--- @return {path:string,version:vim.Version?}?
 local function check_exe(name)
   if vim.fn.executable(name) == 0 then
     return
@@ -49,7 +49,7 @@ local function install_health()
   local ts = check_exe('tree-sitter')
   if not ts then
     health.error('tree-sitter CLI not found')
-  elseif vim.version.lt(ts.version, TREE_SITTER_MIN_VER) then
+  elseif ts.version and vim.version.lt(ts.version, TREE_SITTER_MIN_VER) then
     health.error(('tree-sitter CLI v%d.%d.%d is required'):format(unpack(TREE_SITTER_MIN_VER)))
   else
     health.ok(('tree-sitter %s (%s)'):format(ts.version, ts.path))
@@ -86,7 +86,8 @@ local function config_health()
   end
 end
 
-local parser_health = async.async(function()
+--- @async
+local function parser_health()
   --- @type [string, string, string][]
   local error_collection = {}
 
@@ -127,7 +128,7 @@ local parser_health = async.async(function()
     out[#out + 1] = '\n'
   end
 
-  async.schedule()
+  async.await(vim.schedule)
   health.info(
     ('%s\nLegend: (H)ighlight, (L)ocals, (F)olds, (I)ndents, In(J)ections'):format(
       table.concat(out)
@@ -150,12 +151,12 @@ local parser_health = async.async(function()
       health.error(table.concat(lines, ''))
     end
   end
-end)
+end
 
 function M.check()
   install_health()
   config_health()
-  parser_health():wait()
+  async.run(parser_health):wait()
 end
 
 return M

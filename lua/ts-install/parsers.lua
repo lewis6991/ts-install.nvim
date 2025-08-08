@@ -127,10 +127,10 @@ function M.norm_languages(languages, skip)
   local installed --- @type string[]?
 
   if skip.installed then
+    installed = installed or M.installed()
     languages = vim.tbl_filter(
       --- @param v string
       function(v)
-        installed = installed or M.installed()
         return not vim.list_contains(installed, v)
       end,
       languages
@@ -138,10 +138,10 @@ function M.norm_languages(languages, skip)
   end
 
   if skip.missing then
+    installed = installed or M.installed()
     languages = vim.tbl_filter(
       --- @param v string
       function(v)
-        installed = installed or M.installed()
         return vim.list_contains(installed, v)
       end,
       languages
@@ -176,7 +176,7 @@ end
 --- @async
 --- Returns the install path for parsers, parser info, and queries.
 --- If the specified directory does not exist, it is created.
---- @param dir_name string?
+--- @param dir_name string
 --- @return string
 local function install_dir(dir_name)
   local config = require('ts-install.config').config
