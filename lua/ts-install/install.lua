@@ -134,7 +134,7 @@ local function install_parser(lang, info, logger, generate)
     local ts_ver = tostring(vim.treesitter.language_version)
     local grammar_json = info.generate_from_json and 'src/grammar.json' or nil
     local r = util.system(
-      { 'tree-sitter', 'generate', '--no-bindings', '--abi', ts_ver, grammar_json },
+      { 'tree-sitter', 'generate', '--abi', ts_ver, grammar_json },
       { cwd = compile_dir }
     )
     if r.code > 0 then
