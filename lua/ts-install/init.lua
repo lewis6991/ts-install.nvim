@@ -4,7 +4,7 @@ local function setup_auto_install()
   vim.api.nvim_create_autocmd('FileType', {
     callback = function(args)
       local buf = args.buf
-      local ft = vim.bo[args.buf].filetype
+      local ft = vim.bo[buf].filetype
       local lang = vim.treesitter.language.get_lang(ft) or ft
       if lang == '' then
         return
@@ -13,9 +13,9 @@ local function setup_auto_install()
 
       async
         .run(require('ts-install.install').install, lang, { _auto = true })
-        :wait(function(err, did_not_install)
+        :wait(function(err, did_install)
           assert(not err, err)
-          if not did_not_install then
+          if not did_install then
             return
           end
           vim.schedule(function()

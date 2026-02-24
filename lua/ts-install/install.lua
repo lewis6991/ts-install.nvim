@@ -258,8 +258,8 @@ end
 --- Install a parser
 --- @param languages string[]
 --- @param options? ts_install.install.InstallOpts
---- @param _callback? fun()
-local function install(languages, options, _callback)
+--- @return boolean true if at least one language was installed, false otherwise
+local function install(languages, options)
   options = options or {}
 
   local tasks = {} --- @type ts-install.async.Task[]
@@ -269,7 +269,7 @@ local function install(languages, options, _callback)
       .run(function()
         async.await(vim.schedule)
         local status = try_install_lang(lang, options.generate)
-        if status ~= 'failed' then
+        if status == 'installed' then
           done = done + 1
         end
       end)
@@ -281,11 +281,14 @@ local function install(languages, options, _callback)
     async.await(vim.schedule)
     log.info('Installed %d/%d languages', done, #tasks)
   end
+
+  return done > 0
 end
 
 --- @async
 --- @param languages string[]|string
 --- @param options? ts_install.install.InstallOpts
+--- @return boolean true if at least one language was installed, false otherwise
 function M.install(languages, options)
   parsers.reload()
   if not languages or #languages == 0 then
@@ -295,13 +298,13 @@ function M.install(languages, options)
   if options and options._auto then
     languages = parsers.norm_languages(languages, { installed = true, ignored = true })
     if #languages == 0 then
-      return
+      return false
     end
   else
     languages = parsers.norm_languages(languages, options and options.skip)
   end
 
-  install(languages, options)
+  return install(languages, options)
 end
 
 --- @class ts_install.install.UpdateOpts
@@ -309,8 +312,7 @@ end
 --- @async
 --- @param languages? string[]|string
 --- @param _options? ts_install.install.UpdateOpts
---- @param _callback? function
-function M.update(languages, _options, _callback)
+function M.update(languages, _options)
   parsers.reload()
   if not languages or #languages == 0 then
     languages = 'all'
