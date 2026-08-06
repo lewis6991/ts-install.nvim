@@ -10,9 +10,9 @@ local M = {}
 --- @async
 --- @param lang string
 --- @return boolean
-local function needs_update(lang)
+local function parser_needs_update(lang)
   local info = parsers.install_info(lang)
-  if info then
+  if info and (info.url or info.path) then
     local ok, revision_file = pcall(util.read_file, parsers.revision_file(lang))
     -- Always update if:
     -- - error reading revision file (missing)
@@ -21,14 +21,42 @@ local function needs_update(lang)
     return not ok or revision_file ~= parsers.target_revision(lang)
   end
 
-  -- No revision. Check the queries link to the same place
+  return false
+end
 
+--- @async
+--- @param lang string
+--- @return boolean
+local function queries_need_update(lang)
   local queries = parsers.queries_dir(lang)
   local queries_src = parsers.queries_src_dir(lang)
-  local err1, queries_real = util.realpath(queries)
-  local err2, queries_src_real = util.realpath(queries_src)
 
-  return not not (err1 or err2 or queries_real ~= queries_src_real)
+  -- Queries bundled with a downloaded parser are unavailable after its source
+  -- tree is cleaned up. A parser revision change will reinstall those queries.
+  if util.stat(queries_src) then
+    return false
+  elseif util.stat(queries) then
+    return true
+  end
+
+  -- Git replaces changed query files, leaving installed hard links on the old inode.
+  local installed = {} --- @type table<string, true>
+  for f in fs.dir(queries) do
+    installed[f] = true
+  end
+
+  for f in fs.dir(queries_src) do
+    local src = fs.joinpath(queries_src, f)
+    local dest = fs.joinpath(queries, f)
+    local src_err, src_stat = util.stat(src)
+    local dest_err, dest_stat = util.stat(dest)
+    if src_err or dest_err or src_stat.dev ~= dest_stat.dev or src_stat.ino ~= dest_stat.ino then
+      return true
+    end
+    installed[f] = nil
+  end
+
+  return next(installed) ~= nil
 end
 
 --- @async
@@ -179,12 +207,13 @@ end
 --- @async
 --- @param lang string
 --- @param generate? boolean
+--- @param queries_only? boolean
 --- @return string? err
-local function install_lang(lang, generate)
+local function install_lang(lang, generate, queries_only)
   local logger = log.new('install/' .. lang)
 
   local install_info = parsers.install_info(lang)
-  if install_info and (install_info.url or install_info.path) then
+  if not queries_only and install_info and (install_info.url or install_info.path) then
     local err = install_parser(lang, install_info, logger, generate)
     if err then
       return err
@@ -209,7 +238,7 @@ local function install_lang(lang, generate)
     end
   end
 
-  if install_info and not install_info.path then
+  if not queries_only and install_info and not install_info.path then
     util.remove(parsers.src_dir(lang))
   end
 
@@ -229,8 +258,9 @@ local INSTALL_TIMEOUT = 60000
 --- @async
 --- @param lang string
 --- @param generate? boolean
+--- @param queries_only? boolean
 --- @return ts_install.install.Status status
-local function try_install_lang(lang, generate)
+local function try_install_lang(lang, generate, queries_only)
   if install_status[lang] then
     if install_status[lang] == 'installing' then
       vim.wait(INSTALL_TIMEOUT, function()
@@ -240,7 +270,7 @@ local function try_install_lang(lang, generate)
     end
   else
     install_status[lang] = 'installing'
-    local err = install_lang(lang, generate)
+    local err = install_lang(lang, generate, queries_only)
     install_status[lang] = err and 'failed' or 'installed'
   end
 
@@ -258,8 +288,9 @@ end
 --- Install a parser
 --- @param languages string[]
 --- @param options? ts_install.install.InstallOpts
+--- @param queries_only? table<string, true>
 --- @return boolean true if at least one language was installed, false otherwise
-local function install(languages, options)
+local function install(languages, options, queries_only)
   options = options or {}
 
   local tasks = {} --- @type ts-install.async.Task[]
@@ -268,7 +299,7 @@ local function install(languages, options)
     tasks[#tasks + 1] = async
       .run(function()
         async.await(vim.schedule)
-        local status = try_install_lang(lang, options.generate)
+        local status = try_install_lang(lang, options.generate, queries_only and queries_only[lang])
         if status == 'installed' then
           done = done + 1
         end
@@ -318,10 +349,19 @@ function M.update(languages, _options)
     languages = 'all'
   end
   languages = parsers.norm_languages(languages, { ignored = true, missing = true })
-  languages = vim.tbl_filter(needs_update, languages) --- @type string[]
+  local queries_only = {} --- @type table<string, true>
+  languages = vim.tbl_filter(function(lang)
+    if parser_needs_update(lang) then
+      return true
+    elseif queries_need_update(lang) then
+      queries_only[lang] = true
+      return true
+    end
+    return false
+  end, languages) --- @type string[]
 
   if #languages > 0 then
-    install(languages)
+    install(languages, nil, queries_only)
   else
     log.info('All parsers are up-to-date')
   end

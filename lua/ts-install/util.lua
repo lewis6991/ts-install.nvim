@@ -30,9 +30,6 @@ M.rename = async.wrap(3, uv.fs_rename)
 --- @type fun(path: string, new_path: string): string?
 M.link = async.wrap(3, uv.fs_link)
 
---- @type fun(path: string): string?, string?
-M.realpath = async.wrap(2, uv.fs_realpath)
-
 --- @async
 --- @param cmd string[]
 --- @param opts? vim.SystemOpts
