@@ -1,5 +1,40 @@
 local M = {}
 
+--- Restore a backup if the installed path is missing, otherwise remove it.
+--- @param backup string
+--- @param installed string
+local function recover_backup(backup, installed)
+  if vim.uv.fs_stat(installed) then
+    if vim.fn.delete(backup, 'rf') ~= 0 then
+      vim.notify(('Could not remove backup %s'):format(backup), vim.log.levels.ERROR)
+    end
+    return
+  end
+
+  local ok, err = vim.uv.fs_rename(backup, installed)
+  if not ok then
+    vim.notify(('Could not restore backup %s: %s'):format(backup, err), vim.log.levels.ERROR)
+  end
+end
+
+--- Recover parser and query backups left by a forced exit.
+--- @param install_dir string
+local function recover_backups(install_dir)
+  if vim.uv.fs_stat(install_dir) then
+    for name in vim.fs.dir(install_dir) do
+      local lang = name:match('^%.ts%-install%.(.+)%.parser%.old$')
+      local installed = lang and vim.fs.joinpath(install_dir, 'parser', lang .. '.so')
+      if not lang then
+        lang = name:match('^%.ts%-install%.(.+)%.queries%.old$')
+        installed = lang and vim.fs.joinpath(install_dir, 'queries', lang)
+      end
+      if lang then
+        recover_backup(vim.fs.joinpath(install_dir, name), assert(installed))
+      end
+    end
+  end
+end
+
 local function setup_auto_install()
   vim.api.nvim_create_autocmd('FileType', {
     callback = function(args)
@@ -66,6 +101,7 @@ function M.setup(user_config)
   ts_config.apply(user_config)
 
   local config = ts_config.config
+  recover_backups(config.install_dir)
 
   -- Need to prepend install dir to runtimepath so that the parsers get priority
   -- over the ones provided by core.

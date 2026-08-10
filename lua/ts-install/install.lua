@@ -7,6 +7,12 @@ local parsers = require('ts-install.parsers')
 
 local M = {}
 
+--- @param path string
+--- @return string
+local function temp_path(path)
+  return fs.joinpath(fs.dirname(path), ('.%s.tmp'):format(fs.basename(path)))
+end
+
 --- @async
 --- @param lang string
 --- @return boolean
@@ -181,27 +187,107 @@ local function install_parser(lang, info, logger, generate)
   do -- install parser
     logger:info('Installing parser')
     local install_path = parsers.parser_file(lang)
-
-    if vim.uv.os_uname().sysname == 'Windows_NT' then -- why can't you just be normal?!
-      local tempfile = install_path .. tostring(vim.uv.hrtime())
-      util.rename(install_path, tempfile) -- parser may be in use: rename...
-      util.remove(tempfile) -- ...and mark for garbage collection
-    end
-
     local parser_lib_name = fs.joinpath(compile_dir, 'parser.so')
-    local err = util.copyfile(parser_lib_name, install_path)
+    local staged = temp_path(install_path)
+    util.remove(staged)
+    local err = util.copyfile(parser_lib_name, staged)
     async.await(vim.schedule)
     if err then
+      util.remove(staged)
       return logger:error('Error during parser installation: %s', err)
+    end
+
+    local backup_path
+    if vim.uv.os_uname().sysname == 'Windows_NT' then
+      local install_dir = fs.dirname(fs.dirname(install_path))
+      backup_path = fs.joinpath(install_dir, ('.ts-install.%s.parser.old'):format(lang))
+    end
+    local backup
+    err = util.rename(staged, install_path)
+    if err and backup_path and not util.stat(install_path) then
+      -- Windows may not replace a parser that is in use. Move the old parser
+      -- aside, but keep it until the new parser is installed.
+      util.remove(backup_path)
+      err = util.rename(install_path, backup_path)
+      if not err then
+        backup = backup_path
+        err = util.rename(staged, install_path)
+      end
+    end
+
+    async.await(vim.schedule)
+    if err then
+      util.remove(staged)
+      if backup then
+        local restore_err = util.rename(backup, install_path)
+        if restore_err then
+          return logger:error('%s (could not restore previous parser: %s)', err, restore_err)
+        end
+      end
+      return logger:error('Error during parser installation: %s', err)
+    end
+    if backup_path then
+      util.remove(backup_path)
+    end
+  end
+end
+
+--- Install a complete set of query links.
+---
+--- Links are first created in a temporary directory. Existing queries are kept
+--- as a backup until the new directory is in place, and setup() restores that
+--- backup after a forced exit. Both directories stay outside queries/ because
+--- every entry inside queries/ is treated as an installed language.
+--- @async
+--- @param lang string
+--- @param logger ts_install.Logger
+--- @return string? err
+local function install_queries(lang, logger)
+  local queries_src = parsers.queries_src_dir(lang)
+  local queries = parsers.queries_dir(lang)
+  local install_dir = fs.dirname(fs.dirname(queries))
+  local staged = fs.joinpath(install_dir, ('.ts-install.%s.queries.tmp'):format(lang))
+  local backup = fs.joinpath(install_dir, ('.ts-install.%s.queries.old'):format(lang))
+  logger:info(('Installing queries %s...'):format(lang))
+  util.remove(staged)
+  local err = util.mkpath(staged)
+  if err then
+    return logger:error('%s', err)
+  end
+
+  for f in fs.dir(queries_src) do
+    local src = fs.joinpath(queries_src, f)
+    local dest = fs.joinpath(staged, f)
+    err = util.link(src, dest)
+    if err then
+      util.remove(staged)
+      return logger:error('%s', err)
     end
   end
 
-  if not info.path then
-    local revision = parsers.target_revision(lang)
-    if revision then
-      util.write_file(parsers.revision_file(lang), revision)
+  local had_queries = not util.stat(queries)
+  if had_queries then
+    util.remove(backup)
+    err = util.rename(queries, backup)
+    if err then
+      util.remove(staged)
+      return logger:error('%s', err)
     end
   end
+
+  err = util.rename(staged, queries)
+  if err then
+    util.remove(staged)
+    if had_queries then
+      local restore_err = util.rename(backup, queries)
+      if restore_err then
+        return logger:error('%s (could not restore previous queries: %s)', err, restore_err)
+      end
+    end
+    return logger:error('%s', err)
+  end
+  util.remove(backup)
+  async.await(vim.schedule)
 end
 
 --- @async
@@ -220,25 +306,18 @@ local function install_lang(lang, generate, queries_only)
     end
   end
 
-  do -- install queries
-    local queries_src = parsers.queries_src_dir(lang)
-    local queries = parsers.queries_dir(lang)
-    logger:info(('Installing queries %s...'):format(lang))
-    util.remove(queries)
-    local err = util.mkpath(queries)
-    for f in fs.dir(queries_src) do
-      local src = fs.joinpath(queries_src, f)
-      local dest = fs.joinpath(queries, f)
-      util.link(src, dest)
-    end
-    async.await(vim.schedule)
-
-    if err then
-      return logger:error(err)
-    end
+  local err = install_queries(lang, logger)
+  if err then
+    return err
   end
 
   if not queries_only and install_info and not install_info.path then
+    local revision = parsers.target_revision(lang)
+    if revision then
+      -- Record the revision only after the parser and queries are installed,
+      -- so an interrupted install is retried.
+      util.write_file(parsers.revision_file(lang), revision)
+    end
     util.remove(parsers.src_dir(lang))
   end
 

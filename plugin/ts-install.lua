@@ -30,7 +30,7 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
       }, true, {})
     end, 100)
 
-    -- vim.wait() keeps processing callbacks and Ctrl-C interrupts the wait.
+    -- Keep processing install callbacks while waiting. Ctrl-C stops the wait.
     vim.wait(MAX_TIMEOUT, function()
       return not install.has_pending()
     end)
