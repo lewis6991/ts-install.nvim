@@ -252,8 +252,14 @@ end
 --- | 'timeout'
 
 local install_status = {} --- @type table<string,ts_install.install.Status?>
+local install_tasks = {} --- @type table<ts-install.async.Task<any>, true>
 
 local INSTALL_TIMEOUT = 60000
+
+--- @return boolean
+function M.has_pending()
+  return next(install_tasks) ~= nil
+end
 
 --- @async
 --- @param lang string
@@ -296,7 +302,7 @@ local function install(languages, options, queries_only)
   local tasks = {} --- @type ts-install.async.Task[]
   local done = 0
   for _, lang in ipairs(languages) do
-    tasks[#tasks + 1] = async
+    local task = async
       .run(function()
         async.await(vim.schedule)
         local status = try_install_lang(lang, options.generate, queries_only and queries_only[lang])
@@ -305,6 +311,12 @@ local function install(languages, options, queries_only)
         end
       end)
       :raise_on_error()
+
+    install_tasks[task] = true
+    task:wait(function()
+      install_tasks[task] = nil
+    end)
+    tasks[#tasks + 1] = task
   end
 
   async.await_all(tasks)
