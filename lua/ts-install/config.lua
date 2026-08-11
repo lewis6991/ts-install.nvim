@@ -40,7 +40,7 @@ function M.apply(user_config)
     user_config.install_dir = vim.fs.normalize(user_config.install_dir)
   end
 
-  M.config = vim.tbl_deep_extend('force', M.config, user_config)
+  M.config = vim.tbl_deep_extend('force', {}, M.config, user_config) --[[@as ts_install.config.normalized]]
 end
 
 return M

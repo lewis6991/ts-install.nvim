@@ -8,7 +8,7 @@ local util = require('ts-install.util')
 --- @field revision? string
 ---
 --- URL of parser repo (Github/Gitlab)
---- @field url string
+--- @field url? string
 ---
 --- Branch of parser repo to download (if not default branch)
 --- @field branch? string
@@ -65,6 +65,8 @@ local nvim_ts_parsers
 --- @return table<string,ts_install.ParserInfo>
 function M.get_parser_info()
   if not nvim_ts_parsers then
+    -- nvim-treesitter is supplied by the user's runtime, not this workspace.
+    --- @diagnostic disable-next-line: unresolved-require
     --- @type table<string,ts_install.ParserInfo>
     nvim_ts_parsers = vim.deepcopy(require('nvim-treesitter.parsers'))
     for lang, parser_info in pairs(nvim_ts_parsers) do
@@ -99,6 +101,7 @@ function M.norm_languages(languages, skip)
   elseif type(languages) == 'string' then
     languages = { languages }
   end
+  --- @cast languages string[]
 
   skip = skip or {}
 
@@ -274,16 +277,19 @@ end
 --- @param lang string
 --- @return string
 function M.project_name(lang)
-  local url = assert(M.install_info(lang)).url
+  local info = assert(M.install_info(lang))
+  local url = assert(info.url)
   url = url:gsub('.git$', '')
-  return assert(url:match('[^/]-$'))
+  local name = assert(url:match('[^/]-$'))
+  return name
 end
 
 --- @param lang string
 --- @return string
 function M.tarball_url(lang)
   local revision = M.ref(lang)
-  local url = assert(M.install_info(lang)).url
+  local info = assert(M.install_info(lang))
+  local url = assert(info.url)
   local is_gitlab = url:find('gitlab.com', 1, true)
   url = url:gsub('.git$', '')
   if is_gitlab then

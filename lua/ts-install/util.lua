@@ -5,7 +5,7 @@ local log = require('ts-install.log')
 local async = require('ts-install.async')
 
 --- @type fun(path: string, mode: integer): string?
-local mkdir = async.wrap(3, uv.fs_mkdir)
+local mkdir = async.wrap(3, uv.fs_mkdir --[[@as function]])
 
 --- @type fun(path: string): string?
 local unlink = async.wrap(2, uv.fs_unlink)
@@ -22,13 +22,13 @@ local M = {}
 M.stat = async.wrap(2, uv.fs_stat)
 
 --- @type fun(path: string, new_path: string, flags?: table): string?
-M.copyfile = async.wrap(4, uv.fs_copyfile)
+M.copyfile = async.wrap(4, uv.fs_copyfile --[[@as function]])
 
 --- @type fun(path: string, new_path: string): string?
-M.rename = async.wrap(3, uv.fs_rename)
+M.rename = async.wrap(3, uv.fs_rename --[[@as function]])
 
 --- @type fun(path: string, new_path: string): string?
-M.link = async.wrap(3, uv.fs_link)
+M.link = async.wrap(3, uv.fs_link --[[@as function]])
 
 --- @async
 --- @param cmd string[]
@@ -60,7 +60,7 @@ function M.mkpath(path, mode)
     M.mkpath(parent, mode)
   end
 
-  return mkdir(path, tonumber(mode or '755', 8))
+  return mkdir(path, assert(tonumber(mode or '755', 8)))
 end
 
 --- @param filename string

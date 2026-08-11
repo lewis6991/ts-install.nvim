@@ -31,6 +31,9 @@ local function subcmd_candidates(line)
   return {}
 end
 
+--- @param arglead string
+--- @param line string
+--- @return string[]
 function M.complete(arglead, line)
   local isflag = arglead:match('^%-') ~= nil
   return vim.tbl_filter(

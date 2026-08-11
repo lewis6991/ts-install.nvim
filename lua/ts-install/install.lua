@@ -56,7 +56,10 @@ local function queries_need_update(lang)
     local dest = fs.joinpath(queries, f)
     local src_err, src_stat = util.stat(src)
     local dest_err, dest_stat = util.stat(dest)
-    if src_err or dest_err or src_stat.dev ~= dest_stat.dev or src_stat.ino ~= dest_stat.ino then
+    if src_err or dest_err or not src_stat or not dest_stat then
+      return true
+    end
+    if src_stat.dev ~= dest_stat.dev or src_stat.ino ~= dest_stat.ino then
       return true
     end
     installed[f] = nil
@@ -361,7 +364,7 @@ local function try_install_lang(lang, generate, queries_only)
 
   local status = install_status[lang]
   assert(status and status ~= 'installing')
-  return status
+  return status --[[@as ts_install.install.Status]]
 end
 
 --- @class ts_install.install.InstallOpts
@@ -378,7 +381,7 @@ end
 local function install(languages, options, queries_only)
   options = options or {}
 
-  local tasks = {} --- @type ts-install.async.Task[]
+  local tasks = {} --- @type ts-install.async.Task<any>[]
   local done = 0
   for _, lang in ipairs(languages) do
     local task = async
@@ -441,15 +444,16 @@ function M.update(languages, _options)
   end
   languages = parsers.norm_languages(languages, { ignored = true, missing = true })
   local queries_only = {} --- @type table<string, true>
-  languages = vim.tbl_filter(function(lang)
+  local outdated = {} --- @type string[]
+  for _, lang in ipairs(languages) do
     if parser_needs_update(lang) then
-      return true
+      outdated[#outdated + 1] = lang
     elseif queries_need_update(lang) then
       queries_only[lang] = true
-      return true
+      outdated[#outdated + 1] = lang
     end
-    return false
-  end, languages) --- @type string[]
+  end
+  languages = outdated
 
   if #languages > 0 then
     install(languages, nil, queries_only)
@@ -489,7 +493,7 @@ function M.uninstall(languages, _options)
 
   local installed = parsers.installed()
 
-  local tasks = {} --- @type ts-install.async.Task[]
+  local tasks = {} --- @type ts-install.async.Task<any>[]
   local done = 0
   for _, lang in ipairs(languages) do
     local logger = log.new('uninstall/' .. lang)

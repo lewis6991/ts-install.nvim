@@ -22,6 +22,8 @@ local function unpack_len(t, first)
   end
 end
 
+--- @param obj any
+--- @return boolean
 --- @return_cast obj function
 local function is_callable(obj)
   return vim.is_callable(obj)
@@ -49,7 +51,11 @@ local threads = setmetatable({}, { __mode = 'k' })
 
 --- @return ts-install.async.Task<any>?
 local function running()
-  local task = threads[coroutine.running()]
+  local thread = coroutine.running()
+  if not thread then
+    return
+  end
+  local task = threads[thread]
   if task and not task:completed() then
     return task
   end
@@ -118,14 +124,14 @@ end
 --- Tasks can await other async functions (task of callback functions)
 --- when we are waiting on a child, we store the handle to it here so we can
 --- cancel it.
---- @field package _awaiting? ts-install.async.Task|ts-install.async.Closable
+--- @field package _awaiting? ts-install.async.Task<any>|ts-install.async.Closable
 local Task = {}
 
 do --- Task
   Task.__index = Task
   --- @package
   --- @param func function
-  --- @return ts-install.async.Task
+  --- @return ts-install.async.Task<any>
   function Task._new(func)
     local thread = coroutine.create(function(marker, ...)
       check_yield(marker)
@@ -150,8 +156,9 @@ do --- Task
   end
 
   --- @package
+  --- @param cb fun(err?: any, ...: any)
   function Task:_unwait(cb)
-    return self._future:_remove_cb(cb)
+    self._future:_remove_cb(cb)
   end
 
   --- Returns whether the Task has completed.
@@ -207,7 +214,7 @@ do --- Task
   end
 
   --- If a task completes with an error, raise the error
-  --- @return ts-install.async.Task self
+  --- @return ts-install.async.Task<R> self
   function Task:raise_on_error()
     self:wait(function(err)
       if err then
@@ -236,7 +243,7 @@ do --- Task
 
   do -- Task:_resume()
     --- Should only be called in Task:_resume_co()
-    --- @param task ts-install.async.Task
+    --- @param task ts-install.async.Task<any>
     --- @param stat boolean
     --- @param ... any result
     local function finish(task, stat, ...)
@@ -300,7 +307,7 @@ do --- Task
       end
     end
 
-    --- @param awaiting ts-install.async.Task|ts-install.async.Closable
+    --- @param awaiting ts-install.async.Task<any>|ts-install.async.Closable
     --- @return boolean
     local function can_close_awaiting(awaiting)
       return getmetatable(awaiting) ~= Task
@@ -419,6 +426,7 @@ do --- M.await()
   --- @overload async fun(func: (fun(callback: fun(...:R...)): ts-install.async.Closable?)): R...
   --- @overload async fun(argc: integer, func: (fun(...:T..., callback: fun(...:R...)): ts-install.async.Closable?), ...:T...): R...
   --- @overload async fun(task: ts-install.async.Task<R>): R...
+  --- @return R...
   function M.await(...)
     local task = running()
     assert(task, 'Not in async context')
@@ -436,6 +444,8 @@ do --- M.await()
     elseif type(arg1) == 'function' then
       fn = norm_cb_fun(1, arg1)
     elseif getmetatable(arg1) == Task then
+      --- @param callback fun(err?: any, ...: R...)
+      --- @return ts-install.async.Task<R>
       fn = function(callback)
         arg1:wait(callback)
         return arg1
@@ -477,7 +487,7 @@ end
 --- value. Otherwise, the results of the task are returned as subsequent values.
 --- @async
 --- @param tasks ts-install.async.Task<any>[] A list of tasks to wait for and iterate over.
---- @return async fun(): (integer?, any?, ...any) iterator that yields the index, error, and results of each task.
+--- @return async fun(): integer?, any?, any... iterator that yields the index, error, and results of each task.
 function M.iter(tasks)
   -- TODO(lewis6991): do not return err, instead raise any errors as they occur
   assert(running(), 'Not in async context')
@@ -497,6 +507,8 @@ function M.iter(tasks)
   -- Wait on all the tasks. Keep references to the task futures and wait
   -- callbacks so we can remove them when the iterator is garbage collected.
   for i, task in ipairs(tasks) do
+    --- @param err? any
+    --- @param ... any
     local function cb(err, ...)
       local callback = waiter
 
@@ -546,6 +558,9 @@ function M.await_all(tasks)
   local iter = M.iter(tasks)
   local results = {} --- @type table<integer,table>
 
+  --- @param i? integer
+  --- @param ... any
+  --- @return boolean
   local function collect(i, ...)
     if i then
       results[i] = pack_len(...)
@@ -664,7 +679,7 @@ do --- M.future()
   end
 
   --- Create a new future
-  --- @return ts-install.async.Future
+  --- @return ts-install.async.Future<any>
   function M.future()
     return setmetatable({
       _callbacks = {},
