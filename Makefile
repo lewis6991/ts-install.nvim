@@ -16,7 +16,7 @@ NVIM_ARCHIVE := deps/nvim-$(NVIM_PLATFORM).tar.gz
 NVIM_URL := https://github.com/neovim/neovim/releases/download/$(NVIM_VERSION)/nvim-$(NVIM_PLATFORM).tar.gz
 NVIM_RUNTIME := $(NVIM_DIR)/share/nvim/runtime
 
-EMMYLUA_VERSION := 0.23.2
+EMMYLUA_VERSION := 0.25.0
 EMMYLUA_OS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
 EMMYLUA_DIR := deps/emmylua-$(EMMYLUA_VERSION)
 EMMYLUA_ARCHIVE := deps/emmylua_check-$(EMMYLUA_VERSION)-$(EMMYLUA_OS)-$(EMMYLUA_ARCH).tar.gz

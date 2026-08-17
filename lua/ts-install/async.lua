@@ -42,7 +42,7 @@ local function gc_fun(f, gc)
     return f(...)
   end
 
-  return proxy
+  return proxy --[[@as F]]
 end
 
 --- Weak table to keep track of running tasks
@@ -404,7 +404,7 @@ do --- M.await()
   --- @param argc integer
   --- @param fun fun(...: T, callback: fun(...: R...))
   --- @param ... any func arguments
-  --- @return fun(callback: fun(...: R...))
+  --- @return fun(callback: fun(err?: any, ...: R...)): ts-install.async.Closable?
   local function norm_cb_fun(argc, fun, ...)
     local args = pack_len(...)
 
@@ -438,7 +438,7 @@ do --- M.await()
 
     local arg1 = select(1, ...)
 
-    local fn --- @type fun(...:R...): ts-install.async.Closable?
+    local fn --- @type fun(callback: fun(err?: any, ...: R...)): ts-install.async.Closable?
     if type(arg1) == 'number' then
       fn = norm_cb_fun(...)
     elseif type(arg1) == 'function' then
