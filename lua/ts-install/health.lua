@@ -100,22 +100,26 @@ local function parser_health()
     local parser = parser_info[lang]
     out[#out + 1] = ('%-22s'):format(lang)
 
-    local rok, revision_file = pcall(util.read_file, parsers.revision_file(lang))
-    if not rok then
-      table.insert(error_collection, { lang, 'revision', revision_file })
-      out[#out + 1] = ('%8s'):format('???')
-    else
-      out[#out + 1] = ('%8s'):format(revision_file:sub(1, 8))
-    end
-    out[#out + 1] = '  '
+    local info = parser.install_info
+    -- Shared query groups have no parser or revision to check independently.
+    if info and (info.url or info.path) then
+      local rok, revision_file = pcall(util.read_file, parsers.revision_file(lang))
+      if not rok then
+        table.insert(error_collection, { lang, 'revision', revision_file })
+        out[#out + 1] = ('%8s'):format('???')
+      else
+        out[#out + 1] = ('%8s'):format(revision_file:sub(1, 8))
+      end
+      out[#out + 1] = '  '
 
-    for _, query_group in ipairs({ 'highlights', 'locals', 'folds', 'indents', 'injections' }) do
-      local qok, err = pcall(vim.treesitter.query.get, lang, query_group)
-      local status = not qok and 'x' or not err and ' ' or '✓'
-      out[#out + 1] = status
-      out[#out + 1] = ' '
-      if not qok and err then
-        table.insert(error_collection, { lang, query_group, err })
+      for _, query_group in ipairs({ 'highlights', 'locals', 'folds', 'indents', 'injections' }) do
+        local qok, err = pcall(vim.treesitter.query.get, lang, query_group)
+        local status = not qok and 'x' or not err and ' ' or '✓'
+        out[#out + 1] = status
+        out[#out + 1] = ' '
+        if not qok and err then
+          table.insert(error_collection, { lang, query_group, err })
+        end
       end
     end
 
